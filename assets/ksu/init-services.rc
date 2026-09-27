@@ -1,0 +1,24 @@
+# Optional KernelSU initrc injection. Never auto-start before the metamodule.
+service mio-dolby-hidl /vendor/bin/hw/vendor.dolby.hardware.dms@2.0-service
+    class late_start
+    user media
+    group audio media
+    disabled
+    oneshot
+
+service mio-dolby-dms /system_ext/bin/hw/vendor.dolby.dms.service
+    class late_start
+    user media
+    group audio media
+    disabled
+    oneshot
+
+service mio-dolby-codec /system_ext/bin/hw/dolbycodecservice
+    class late_start
+    user mediacodec
+    group audio camera mediadrm drmrpc system
+    capabilities SYS_NICE
+    disabled
+    interface aidl android.hardware.media.c2.IComponentStore/default9
+    ioprio rt 4
+    restart_period 3

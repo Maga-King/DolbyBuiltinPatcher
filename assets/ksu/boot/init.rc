@@ -1,0 +1,55 @@
+service mio-dolby-hidl /vendor/bin/hw/vendor.dolby.hardware.dms@2.0-service
+    class late_start
+    user media
+    group audio media
+    disabled
+    oneshot
+
+service mio-dolby-dms /system_ext/bin/hw/vendor.dolby.dms.service
+    class late_start
+    user media
+    group audio media
+    disabled
+    oneshot
+
+service mio-dolby-codec /system_ext/bin/hw/dolbycodecservice
+    class late_start
+    user mediacodec
+    group audio camera mediadrm drmrpc system
+    capabilities SYS_NICE
+    disabled
+    interface aidl android.hardware.media.c2.IComponentStore/default9
+    ioprio rt 4
+    restart_period 3
+
+on early-init
+    exec u:r:ksu:s0 root root -- /system/bin/sh /metadata/watchdog/ksu/mio_dolby_c17_generated/early.sh
+
+service mio-dolby-readiness /system/bin/sh /data/adb/modules/mio_dolby_c17_generated/gate.sh
+    user root
+    group root
+    seclabel u:r:ksu:s0
+    disabled
+    oneshot
+    timeout_period 25
+
+service mio-dolby-commit /system/bin/sh /data/adb/modules/mio_dolby_c17_generated/commit.sh
+    user root
+    group root
+    seclabel u:r:ksu:s0
+    disabled
+    oneshot
+    timeout_period 8
+
+service mio-dolby-recover /system/bin/sh /data/adb/modules/mio_dolby_c17_generated/recover.sh
+    user root
+    group root
+    seclabel u:r:ksu:s0
+    disabled
+    oneshot
+    timeout_period 8
+
+on early-boot
+    exec_start mio-dolby-readiness
+    exec_start mio-dolby-commit
+    exec_start mio-dolby-recover

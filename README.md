@@ -1,0 +1,130 @@
+# 杜比全景 + 解码器 · DolbyBuiltinPatcher
+
+面向 **ColorOS 17 / Android 17 / Qualcomm ARM64** 的 Windows 图形工具：
+为已解包 ROM 集成杜比组件，或根据目标系统生成 **KernelSU + 挂载元模块** 专用包。
+
+模块署名：**科比**。推荐组合：**KSU + MOUNTIFY**。
+
+> 这是第三方适配工具，不是 Dolby、OnePlus、OPPO 或 Lunaris 的官方产品。
+> 它不是任意手机通刷包；生成成功不代表目标设备一定可以开机或正常播放。
+> 本仓库只发布源码、配置模板及构建材料，**不附带专有 Dolby 库、APK、ROM 或可直接刷入的完整 ZIP**。
+
+## 来源与致谢
+
+本项目的杜比 App 与集成方案来源于 **LunarisDolby / AlphaDroid 相关移植材料**。
+LunarisDolby 上游位于 [Pong-Development/hardware_dolby](https://github.com/Pong-Development/hardware_dolby)，
+App 源码目录为 [LunarisDolby](https://github.com/Pong-Development/hardware_dolby/tree/16/LunarisDolby)。
+
+本工具采用的 LunarisDolby SELinux 规则快照固定在提交
+`6300a4e30757d5810d62b2df0cff973ec438a70f`，原始规则、来源说明及宏展开结果位于
+[`assets/upstream-lunaris`](assets/upstream-lunaris/SOURCE.md)。
+**本项目不声称原创 LunarisDolby App 或 Dolby 算法，也不以来源标注代替第三方授权。**
+
+同时感谢 [KernelSU](https://github.com/tiann/KernelSU)、
+[SELinuxProject](https://github.com/SELinuxProject/selinux) 与 Android/AOSP。
+详细说明见 [THIRD_PARTY.md](THIRD_PARTY.md)。
+
+## 可以做什么
+
+| 输入模式 | 修改解包 ROM | 生成 KSU 模块 |
+| --- | --- | --- |
+| 电脑上的 ROM 解包目录 | 支持，先备份后原位修改 | 支持，只读输入 |
+| ADB 手机 ROM 解包目录 | 支持，需要 root 与完整目录 | 支持，只读输入 |
+| ADB 实时读取当前系统 | **不支持写回运行分区** | 支持，读取当前可见文件 |
+
+- 集成目标包括 LunarisDolby App、DAP 音效、HIDL/AIDL DMS 与 Codec2 解码服务；完整构建需要自行准备合法来源的配套资产。
+- 按实际 HAL、音效配置和 codec Include 链定位 XML，不只处理某个固定 SKU 目录。
+- 支持 DNA 打包元数据中的权限与 SELinux 标签合并，以及有条件的备份/回退。
+- 多设备连接时要求选择设备，不自动选第一台；模块生成不自动刷入、重启或写运行分区。
+- 模块的 `solidify/` 仅提供固化参考，工具不会自动把它写入分区。
+
+## 当前模块机制
+
+本仓库对应 0.6.1 模块修复系列；内置引擎和 GUI 基础版本仍为 0.6.0。
+当前模块版本为 **`0.6.1-early3-initrc-cache`**，`versionCode=603`。
+
+1. 提前准备 HIDL 支持声明，保留元模块挂载前已有的子挂载。
+2. 文件、依赖与服务就绪检查通过后，才发布 Codec2/default9 声明并提交音频配置。
+3. 解码服务不使用 `oneshot`，提供 `default9` 接口启动映射及 `restart_period 3`。
+   这是进程退出后的恢复间隔，**不是每三秒检查或重启健康进程**。
+4. 启动准备失败时尝试撤回本模块声明/配置；不强杀或重启 HWS、音频 HAL、mediaserver。
+5. 开机对 initrc 缓存检查一次，仅不一致时限时刷新一次；没有开机后的常驻轮询。
+6. Action 按钮只读检查本次启动状态，不把上次开机的遗留日志当作成功证据。
+
+`modules.rc` 刷新只影响**下次启动**，不能替换当前 init 已加载的定义。
+手工改 RC 后可在重启前执行：
+
+```sh
+su -c 'sh /data/adb/modules/mio_dolby_c17_generated/initrc-cache.sh repair'
+```
+
+如果自动兜底在开机后才发现旧缓存并刷新，仍需用户再重启一次。
+禁用、待卸载或待更新时跳过修复；不会擅自启用模块。
+
+## 使用前必须了解
+
+- 原生内置会修改你选择的**解包目录**，不是只生成一个无副作用的报告；先备份并准备恢复手段。
+- 模块需要支持 initrc 注入、同步 post-mount 与正确挂载的 KSU/元模块环境；不支持时拒绝安装或激活。
+- 推荐 KSU + MOUNTIFY 不等于所有版本、机型、SELinux 环境都兼容。
+- 当前参考实测为一加 13、C17 Android 17 DSU、KSU + Mountify 2.0.3，系统原本为 Permissive。
+  **没有证明 Enforcing 或其他机型普遍可用**；工具不会主动关闭 SELinux。
+- 不叠加其他杜比实现。当前安装器要求旧生成模块先卸载并重启，清理早期 metadata 后再安装；不保证直接覆盖升级。
+- 目标专用模块绑定配置与系统身份，换 ROM 或 OTA 后应重新生成。实时读取可能读到其他模块的挂载，不保证是纯净底包。
+- 不替换原厂 `libaudioeffecthal.qti.so`，不向模块挂入整份 CIL/precompiled_sepolicy。
+- 已修复“解码进程退出后接口长期失联”的配置缺陷；**不宣称解码库内部崩溃已经根治**。
+  持续崩溃时应停用模块、保留日志，不能把自动重启当作播放正常。
+- 官方 AudioEffectCenter 接管、所有机型通用音效切换不在本仓库已完成功能范围内。
+
+更多说明见 [docs/使用与资产.md](docs/使用与资产.md)。
+
+## 从源码运行
+
+本仓库不包含 `assets/payload.zip`、Windows `secilc.exe`、ADB 或第三方运行时。
+**仅克隆仓库不能直接生成可用的杜比模块**；先按 [资产说明](assets/README.md) 准备匹配资产。
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+python -m unittest tests -v
+python app.py
+```
+
+开发参考环境为 Windows x64 / Python 3.12。单元测试不需要手机或专有 payload，
+测试通过不等于真实 ROM/音频兼容性通过。
+
+生成模块示例（不会安装模块或修改输入 ROM）：
+
+```powershell
+python app.py --rom "D:\ROM解包" --module "D:\杜比_KSU.zip"
+python app.py --adb "设备序列号" --remote-rom "/data/DNA/ROM" --module "D:\杜比_KSU.zip"
+python app.py --adb "设备序列号" --adb-live --module "D:\杜比_KSU.zip"
+```
+
+注意：CLI 只给 `--rom` 时，默认执行原位修改；只生成内置补丁而不写回，必须加 `--build-only`。
+资产齐备后执行 `build.ps1` 打包 Windows 程序。编译器源码与构建说明位于 `native/`、`third_party/selinux/`。
+
+## 目录
+
+```text
+app.py / gui.py          命令行与图形界面
+core.py / discovery.py   ROM 布局识别、文件合并和变更记录
+adb_mode.py             ADB 快照、事务、回退
+ksu_module.py            模块生成入口
+ksu_boot.py              模块启动材料导出与 RC 校验
+assets/ksu/boot/         当前早期启动模板、门禁和缓存检查
+assets/upstream-lunaris/ LunarisDolby SELinux 来源快照
+native/                 Windows secilc 移植兼容层和构建脚本
+third_party/selinux/     SELinuxProject 相关源码与原许可证
+tests.py                自动化单元测试
+```
+
+`assets/ksu/service.sh` 为保留的旧模板；当前生成模块使用 `assets/ksu/boot/service.sh`，不要手工替换混用。
+
+## 问题反馈与隐私
+
+请说明机型、系统版本、KSU/元模块版本、SELinux 状态、操作模式与报错阶段。
+发日志前遮盖设备序列号、账号、个人路径和其他隐私；不要上传完整 ROM、账号凭据或未经授权的专有资产。
+
+公开源码不改变第三方文件的许可证，不代表获得 Dolby 商标或专有库的再分发授权。
+本项目原创部分尚未另行指定开源许可证；第三方部分遵循其原有许可证与权利声明。

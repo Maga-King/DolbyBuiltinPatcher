@@ -1,0 +1,852 @@
+[
+  {
+    "Partition": "system",
+    "Operation": "新增",
+    "Path": "system/system/etc/init/00-dolby-native.rc",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:system_file:s0",
+    "Bytes": "1013",
+    "canonical": "system/etc/init/00-dolby-native.rc"
+  },
+  {
+    "Partition": "system_ext",
+    "Operation": "新增",
+    "Path": "system_ext/bin/hw/dolbycodecservice",
+    "Owner": "root:root",
+    "Mode": "0755",
+    "SELinux": "u:object_r:mediacodec_exec:s0",
+    "Bytes": "2234281",
+    "canonical": "system_ext/bin/hw/dolbycodecservice"
+  },
+  {
+    "Partition": "system_ext",
+    "Operation": "新增",
+    "Path": "system_ext/bin/hw/vendor.dolby.dms.service",
+    "Owner": "root:root",
+    "Mode": "0755",
+    "SELinux": "u:object_r:hal_aidl_dms_default_exec:s0",
+    "Bytes": "398785",
+    "canonical": "system_ext/bin/hw/vendor.dolby.dms.service"
+  },
+  {
+    "Partition": "system_ext",
+    "Operation": "新增",
+    "Path": "system_ext/etc/permissions/privapp-permissions-dolby.xml",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:system_file:s0",
+    "Bytes": "219",
+    "canonical": "system_ext/etc/permissions/privapp-permissions-dolby.xml"
+  },
+  {
+    "Partition": "system_ext",
+    "Operation": "新增",
+    "Path": "system_ext/lib64/dolbyaidl/android.hardware.media.c2@1.0_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:system_lib_file:s0",
+    "Bytes": "1195905",
+    "canonical": "system_ext/lib64/dolbyaidl/android.hardware.media.c2@1.0_dolby.so"
+  },
+  {
+    "Partition": "system_ext",
+    "Operation": "新增",
+    "Path": "system_ext/lib64/dolbyaidl/android.hardware.media.c2@1.1_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:system_lib_file:s0",
+    "Bytes": "559841",
+    "canonical": "system_ext/lib64/dolbyaidl/android.hardware.media.c2@1.1_dolby.so"
+  },
+  {
+    "Partition": "system_ext",
+    "Operation": "新增",
+    "Path": "system_ext/lib64/dolbyaidl/android.hardware.media.c2@1.2_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:system_lib_file:s0",
+    "Bytes": "695137",
+    "canonical": "system_ext/lib64/dolbyaidl/android.hardware.media.c2@1.2_dolby.so"
+  },
+  {
+    "Partition": "system_ext",
+    "Operation": "新增",
+    "Path": "system_ext/lib64/dolbyaidl/android.hardware.media.c2-V1-ndk_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:system_lib_file:s0",
+    "Bytes": "577889",
+    "canonical": "system_ext/lib64/dolbyaidl/android.hardware.media.c2-V1-ndk_dolby.so"
+  },
+  {
+    "Partition": "system_ext",
+    "Operation": "新增",
+    "Path": "system_ext/lib64/dolbyaidl/android.hardware.media.omx@1.0_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:system_lib_file:s0",
+    "Bytes": "848553",
+    "canonical": "system_ext/lib64/dolbyaidl/android.hardware.media.omx@1.0_dolby.so"
+  },
+  {
+    "Partition": "system_ext",
+    "Operation": "新增",
+    "Path": "system_ext/lib64/dolbyaidl/android.hardware.media@1.0_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:system_lib_file:s0",
+    "Bytes": "132233",
+    "canonical": "system_ext/lib64/dolbyaidl/android.hardware.media@1.0_dolby.so"
+  },
+  {
+    "Partition": "system_ext",
+    "Operation": "新增",
+    "Path": "system_ext/lib64/dolbyaidl/libaconfig_storage_read_api_cc_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:system_lib_file:s0",
+    "Bytes": "198897",
+    "canonical": "system_ext/lib64/dolbyaidl/libaconfig_storage_read_api_cc_dolby.so"
+  },
+  {
+    "Partition": "system_ext",
+    "Operation": "新增",
+    "Path": "system_ext/lib64/dolbyaidl/libcodec2_aidl_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:system_lib_file:s0",
+    "Bytes": "684089",
+    "canonical": "system_ext/lib64/dolbyaidl/libcodec2_aidl_dolby.so"
+  },
+  {
+    "Partition": "system_ext",
+    "Operation": "新增",
+    "Path": "system_ext/lib64/dolbyaidl/libcodec2_hal_common.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:system_lib_file:s0",
+    "Bytes": "143121",
+    "canonical": "system_ext/lib64/dolbyaidl/libcodec2_hal_common.so"
+  },
+  {
+    "Partition": "system_ext",
+    "Operation": "新增",
+    "Path": "system_ext/lib64/dolbyaidl/libcodec2_hidl@1.0_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:system_lib_file:s0",
+    "Bytes": "830065",
+    "canonical": "system_ext/lib64/dolbyaidl/libcodec2_hidl@1.0_dolby.so"
+  },
+  {
+    "Partition": "system_ext",
+    "Operation": "新增",
+    "Path": "system_ext/lib64/dolbyaidl/libcodec2_hidl@1.1_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:system_lib_file:s0",
+    "Bytes": "809545",
+    "canonical": "system_ext/lib64/dolbyaidl/libcodec2_hidl@1.1_dolby.so"
+  },
+  {
+    "Partition": "system_ext",
+    "Operation": "新增",
+    "Path": "system_ext/lib64/dolbyaidl/libcodec2_hidl@1.2_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:system_lib_file:s0",
+    "Bytes": "943457",
+    "canonical": "system_ext/lib64/dolbyaidl/libcodec2_hidl@1.2_dolby.so"
+  },
+  {
+    "Partition": "system_ext",
+    "Operation": "新增",
+    "Path": "system_ext/lib64/dolbyaidl/libcodec2_hidl_plugin_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:system_lib_file:s0",
+    "Bytes": "200673",
+    "canonical": "system_ext/lib64/dolbyaidl/libcodec2_hidl_plugin_dolby.so"
+  },
+  {
+    "Partition": "system_ext",
+    "Operation": "新增",
+    "Path": "system_ext/lib64/dolbyaidl/libcodec2_soft_ac4dec_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:system_lib_file:s0",
+    "Bytes": "3664001",
+    "canonical": "system_ext/lib64/dolbyaidl/libcodec2_soft_ac4dec_dolby.so"
+  },
+  {
+    "Partition": "system_ext",
+    "Operation": "新增",
+    "Path": "system_ext/lib64/dolbyaidl/libcodec2_soft_common_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:system_lib_file:s0",
+    "Bytes": "880505",
+    "canonical": "system_ext/lib64/dolbyaidl/libcodec2_soft_common_dolby.so"
+  },
+  {
+    "Partition": "system_ext",
+    "Operation": "新增",
+    "Path": "system_ext/lib64/dolbyaidl/libcodec2_soft_ddpdec_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:system_lib_file:s0",
+    "Bytes": "3385625",
+    "canonical": "system_ext/lib64/dolbyaidl/libcodec2_soft_ddpdec_dolby.so"
+  },
+  {
+    "Partition": "system_ext",
+    "Operation": "新增",
+    "Path": "system_ext/lib64/dolbyaidl/libcodec2_store_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:system_lib_file:s0",
+    "Bytes": "269569",
+    "canonical": "system_ext/lib64/dolbyaidl/libcodec2_store_dolby.so"
+  },
+  {
+    "Partition": "system_ext",
+    "Operation": "新增",
+    "Path": "system_ext/lib64/dolbyaidl/libcodec2_vndk_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:system_lib_file:s0",
+    "Bytes": "1542105",
+    "canonical": "system_ext/lib64/dolbyaidl/libcodec2_vndk_dolby.so"
+  },
+  {
+    "Partition": "system_ext",
+    "Operation": "新增",
+    "Path": "system_ext/lib64/dolbyaidl/libdapparamstorage_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:system_lib_file:s0",
+    "Bytes": "70569",
+    "canonical": "system_ext/lib64/dolbyaidl/libdapparamstorage_dolby.so"
+  },
+  {
+    "Partition": "system_ext",
+    "Operation": "新增",
+    "Path": "system_ext/lib64/dolbyaidl/libdeccfg_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:system_lib_file:s0",
+    "Bytes": "267129",
+    "canonical": "system_ext/lib64/dolbyaidl/libdeccfg_dolby.so"
+  },
+  {
+    "Partition": "system_ext",
+    "Operation": "新增",
+    "Path": "system_ext/lib64/dolbyaidl/libdlbdsservice_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:system_lib_file:s0",
+    "Bytes": "771713",
+    "canonical": "system_ext/lib64/dolbyaidl/libdlbdsservice_dolby.so"
+  },
+  {
+    "Partition": "system_ext",
+    "Operation": "新增",
+    "Path": "system_ext/lib64/dolbyaidl/libdlbpreg_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:system_lib_file:s0",
+    "Bytes": "71033",
+    "canonical": "system_ext/lib64/dolbyaidl/libdlbpreg_dolby.so"
+  },
+  {
+    "Partition": "system_ext",
+    "Operation": "新增",
+    "Path": "system_ext/lib64/dolbyaidl/libdmshal_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:system_lib_file:s0",
+    "Bytes": "337721",
+    "canonical": "system_ext/lib64/dolbyaidl/libdmshal_dolby.so"
+  },
+  {
+    "Partition": "system_ext",
+    "Operation": "新增",
+    "Path": "system_ext/lib64/dolbyaidl/libdolbyclstc_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:system_lib_file:s0",
+    "Bytes": "733145",
+    "canonical": "system_ext/lib64/dolbyaidl/libdolbyclstc_dolby.so"
+  },
+  {
+    "Partition": "system_ext",
+    "Operation": "新增",
+    "Path": "system_ext/lib64/dolbyaidl/libmedia_codecserviceregistrant_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:system_lib_file:s0",
+    "Bytes": "795657",
+    "canonical": "system_ext/lib64/dolbyaidl/libmedia_codecserviceregistrant_dolby.so"
+  },
+  {
+    "Partition": "system_ext",
+    "Operation": "新增",
+    "Path": "system_ext/lib64/dolbyaidl/libsensorndkbridge.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:system_lib_file:s0",
+    "Bytes": "142737",
+    "canonical": "system_ext/lib64/dolbyaidl/libsensorndkbridge.so"
+  },
+  {
+    "Partition": "system_ext",
+    "Operation": "新增",
+    "Path": "system_ext/lib64/dolbyaidl/libspatializerparamstorage.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:system_lib_file:s0",
+    "Bytes": "351881",
+    "canonical": "system_ext/lib64/dolbyaidl/libspatializerparamstorage.so"
+  },
+  {
+    "Partition": "system_ext",
+    "Operation": "新增",
+    "Path": "system_ext/lib64/dolbyaidl/libstagefright_bufferpool@2.0.1_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:system_lib_file:s0",
+    "Bytes": "359705",
+    "canonical": "system_ext/lib64/dolbyaidl/libstagefright_bufferpool@2.0.1_dolby.so"
+  },
+  {
+    "Partition": "system_ext",
+    "Operation": "新增",
+    "Path": "system_ext/lib64/dolbyaidl/libstagefright_bufferqueue_helper_novndk_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:system_lib_file:s0",
+    "Bytes": "571145",
+    "canonical": "system_ext/lib64/dolbyaidl/libstagefright_bufferqueue_helper_novndk_dolby.so"
+  },
+  {
+    "Partition": "system_ext",
+    "Operation": "新增",
+    "Path": "system_ext/lib64/dolbyaidl/vendor.dolby.dms-V1-ndk_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:system_lib_file:s0",
+    "Bytes": "142641",
+    "canonical": "system_ext/lib64/dolbyaidl/vendor.dolby.dms-V1-ndk_dolby.so"
+  },
+  {
+    "Partition": "system_ext",
+    "Operation": "新增",
+    "Path": "system_ext/lib64/dolbyaidl/vendor.dolby.hardware.dms@2.0_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:system_lib_file:s0",
+    "Bytes": "384281",
+    "canonical": "system_ext/lib64/dolbyaidl/vendor.dolby.hardware.dms@2.0_dolby.so"
+  },
+  {
+    "Partition": "system_ext",
+    "Operation": "新增",
+    "Path": "system_ext/priv-app/LunarisDolby/LunarisDolby.apk",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:system_file:s0",
+    "Bytes": "54237498",
+    "canonical": "system_ext/priv-app/LunarisDolby/LunarisDolby.apk"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/bin/hw/vendor.dolby.hardware.dms@2.0-service",
+    "Owner": "root:root",
+    "Mode": "0755",
+    "SELinux": "u:object_r:hal_dms_default_exec:s0",
+    "Bytes": "14488",
+    "canonical": "vendor/bin/hw/vendor.dolby.hardware.dms@2.0-service"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/etc/dolby/dax-default.xml",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_configs_file:s0",
+    "Bytes": "87428",
+    "canonical": "vendor/etc/dolby/dax-default.xml"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/etc/vintf/manifest/dolby-native.xml",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_configs_file:s0",
+    "Bytes": "518",
+    "canonical": "vendor/etc/vintf/manifest/dolby-native.xml"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/dolbyaidl/android.hardware.media.c2@1.0_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "1195905",
+    "canonical": "vendor/lib64/dolbyaidl/android.hardware.media.c2@1.0_dolby.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/dolbyaidl/android.hardware.media.c2@1.1_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "559841",
+    "canonical": "vendor/lib64/dolbyaidl/android.hardware.media.c2@1.1_dolby.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/dolbyaidl/android.hardware.media.c2@1.2_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "695137",
+    "canonical": "vendor/lib64/dolbyaidl/android.hardware.media.c2@1.2_dolby.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/dolbyaidl/android.hardware.media.c2-V1-ndk_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "577889",
+    "canonical": "vendor/lib64/dolbyaidl/android.hardware.media.c2-V1-ndk_dolby.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/dolbyaidl/android.hardware.media.omx@1.0_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "848553",
+    "canonical": "vendor/lib64/dolbyaidl/android.hardware.media.omx@1.0_dolby.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/dolbyaidl/android.hardware.media@1.0_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "132233",
+    "canonical": "vendor/lib64/dolbyaidl/android.hardware.media@1.0_dolby.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/dolbyaidl/libaconfig_storage_read_api_cc_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "198897",
+    "canonical": "vendor/lib64/dolbyaidl/libaconfig_storage_read_api_cc_dolby.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/dolbyaidl/libcodec2_aidl_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "684089",
+    "canonical": "vendor/lib64/dolbyaidl/libcodec2_aidl_dolby.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/dolbyaidl/libcodec2_hal_common.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "143121",
+    "canonical": "vendor/lib64/dolbyaidl/libcodec2_hal_common.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/dolbyaidl/libcodec2_hidl@1.0_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "830065",
+    "canonical": "vendor/lib64/dolbyaidl/libcodec2_hidl@1.0_dolby.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/dolbyaidl/libcodec2_hidl@1.1_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "809545",
+    "canonical": "vendor/lib64/dolbyaidl/libcodec2_hidl@1.1_dolby.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/dolbyaidl/libcodec2_hidl@1.2_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "943457",
+    "canonical": "vendor/lib64/dolbyaidl/libcodec2_hidl@1.2_dolby.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/dolbyaidl/libcodec2_hidl_plugin_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "200673",
+    "canonical": "vendor/lib64/dolbyaidl/libcodec2_hidl_plugin_dolby.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/dolbyaidl/libcodec2_soft_ac4dec_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "3664001",
+    "canonical": "vendor/lib64/dolbyaidl/libcodec2_soft_ac4dec_dolby.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/dolbyaidl/libcodec2_soft_common_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "880505",
+    "canonical": "vendor/lib64/dolbyaidl/libcodec2_soft_common_dolby.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/dolbyaidl/libcodec2_soft_ddpdec_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "3385625",
+    "canonical": "vendor/lib64/dolbyaidl/libcodec2_soft_ddpdec_dolby.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/dolbyaidl/libcodec2_store_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "269569",
+    "canonical": "vendor/lib64/dolbyaidl/libcodec2_store_dolby.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/dolbyaidl/libcodec2_vndk_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "1542105",
+    "canonical": "vendor/lib64/dolbyaidl/libcodec2_vndk_dolby.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/dolbyaidl/libdapparamstorage_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "70569",
+    "canonical": "vendor/lib64/dolbyaidl/libdapparamstorage_dolby.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/dolbyaidl/libdeccfg_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "267129",
+    "canonical": "vendor/lib64/dolbyaidl/libdeccfg_dolby.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/dolbyaidl/libdlbdsservice_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "771713",
+    "canonical": "vendor/lib64/dolbyaidl/libdlbdsservice_dolby.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/dolbyaidl/libdlbpreg_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "71033",
+    "canonical": "vendor/lib64/dolbyaidl/libdlbpreg_dolby.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/dolbyaidl/libdmshal_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "337721",
+    "canonical": "vendor/lib64/dolbyaidl/libdmshal_dolby.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/dolbyaidl/libdolbyclstc_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "733145",
+    "canonical": "vendor/lib64/dolbyaidl/libdolbyclstc_dolby.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/dolbyaidl/libmedia_codecserviceregistrant_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "795657",
+    "canonical": "vendor/lib64/dolbyaidl/libmedia_codecserviceregistrant_dolby.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/dolbyaidl/libsensorndkbridge.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "142737",
+    "canonical": "vendor/lib64/dolbyaidl/libsensorndkbridge.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/dolbyaidl/libspatializerparamstorage.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "351881",
+    "canonical": "vendor/lib64/dolbyaidl/libspatializerparamstorage.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/dolbyaidl/libstagefright_bufferpool@2.0.1_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "359705",
+    "canonical": "vendor/lib64/dolbyaidl/libstagefright_bufferpool@2.0.1_dolby.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/dolbyaidl/libstagefright_bufferqueue_helper_novndk_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "571145",
+    "canonical": "vendor/lib64/dolbyaidl/libstagefright_bufferqueue_helper_novndk_dolby.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/dolbyaidl/vendor.dolby.dms-V1-ndk_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "142641",
+    "canonical": "vendor/lib64/dolbyaidl/vendor.dolby.dms-V1-ndk_dolby.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/dolbyaidl/vendor.dolby.hardware.dms@2.0_dolby.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "384281",
+    "canonical": "vendor/lib64/dolbyaidl/vendor.dolby.hardware.dms@2.0_dolby.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/libdapparamstorage.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "23904",
+    "canonical": "vendor/lib64/libdapparamstorage.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/libdlbdsservice.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "609809",
+    "canonical": "vendor/lib64/libdlbdsservice.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/libstagefright_foundation-v33.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "207488",
+    "canonical": "vendor/lib64/libstagefright_foundation-v33.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/soundfx/android.hardware.audio.common-V4-ndk.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "69705",
+    "canonical": "vendor/lib64/soundfx/android.hardware.audio.common-V4-ndk.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/soundfx/android.hardware.audio.effect-V3-ndk.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "448985",
+    "canonical": "vendor/lib64/soundfx/android.hardware.audio.effect-V3-ndk.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/soundfx/android.media.audio.eraser.types-V1-ndk.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "143641",
+    "canonical": "vendor/lib64/soundfx/android.media.audio.eraser.types-V1-ndk.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/soundfx/libdapparamstorage.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "72161",
+    "canonical": "vendor/lib64/soundfx/libdapparamstorage.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/soundfx/libdlbpreg.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "135961",
+    "canonical": "vendor/lib64/soundfx/libdlbpreg.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/soundfx/libstagefright_foundation-v33.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "304281",
+    "canonical": "vendor/lib64/soundfx/libstagefright_foundation-v33.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/soundfx/libswdap.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "2836545",
+    "canonical": "vendor/lib64/soundfx/libswdap.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/soundfx/libswdapaidl.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "348113",
+    "canonical": "vendor/lib64/soundfx/libswdapaidl.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/soundfx/vendor.dolby.hardware.dms@2.0.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "323945",
+    "canonical": "vendor/lib64/soundfx/vendor.dolby.hardware.dms@2.0.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/vendor.dolby.hardware.dms@2.0.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "261824",
+    "canonical": "vendor/lib64/vendor.dolby.hardware.dms@2.0.so"
+  },
+  {
+    "Partition": "vendor",
+    "Operation": "新增",
+    "Path": "vendor/lib64/vendor.dolby.hardware.dms@2.0-impl.so",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_file:s0",
+    "Bytes": "46952",
+    "canonical": "vendor/lib64/vendor.dolby.hardware.dms@2.0-impl.so"
+  },
+  {
+    "Partition": "odm",
+    "Operation": "新增",
+    "Path": "odm/etc/dolby/dax-default.xml",
+    "Owner": "root:root",
+    "Mode": "0644",
+    "SELinux": "u:object_r:vendor_configs_file:s0",
+    "Bytes": "87428",
+    "canonical": "odm/etc/dolby/dax-default.xml"
+  }
+]
