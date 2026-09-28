@@ -149,6 +149,76 @@ class DiscoveryTests(unittest.TestCase):
         with self.assertRaises(PatchError):discover(self.rom)
 
 class PackingTests(unittest.TestCase):
+    def native_fixture(self,root,slot=False):
+        from core import Build,Rom,write
+        for part in ('system','system_ext','vendor','odm','product'):
+            prefix=part+'_a' if slot else part
+            directory=prefix+'/system' if part=='system' else prefix
+            (root/directory/'etc').mkdir(parents=True)
+            packpath='system/system' if part=='system' else part
+            write(root/'config'/f'{prefix}_file_contexts',f'/{packpath}/etc/anchor u:object_r:system_file:s0\n')
+            write(root/'config'/f'{prefix}_fs_config',f'{packpath}/etc/anchor 0 0 0644\n')
+        build=Build.__new__(Build);build.rom=Rom(root);build.require_metadata=True
+        build.tree=root.parent/'patch_tree';build.tree.mkdir();build.changes={}
+        return build
+
+    def test_native_stage_preserves_stock_file_context_label_and_metadata(self):
+        from core import read,write
+        for slot in (False,True):
+            with self.subTest(slot=slot),tempfile.TemporaryDirectory() as tmp:
+                build=self.native_fixture(Path(tmp)/'rom',slot)
+                name='system_ext/etc/selinux/system_ext_file_contexts'
+                write(build.rom.path(name),'stock')
+                metadata=build.rom.metadata('system_ext','file_contexts')
+                write(metadata,read(metadata)+'/'+name+' u:object_r:file_contexts_file:s0\n')
+                build.stage(name,b'patched')
+                self.assertEqual(build.changes[build.rom.rel(name)]['label'],'u:object_r:file_contexts_file:s0')
+                build.metadata()
+                result=read(build.tree/metadata.relative_to(build.rom.root))
+                self.assertIn('/'+name+' u:object_r:file_contexts_file:s0',result)
+
+    def test_native_stage_preserves_legacy_and_sar_regular_file_keys(self):
+        from core import read,write,context_key
+        import re
+        for escape in (context_key,lambda p:'/'+re.escape(p),lambda p:'/'+p):
+            with tempfile.TemporaryDirectory() as tmp:
+                build=self.native_fixture(Path(tmp)/'rom',True)
+                name='system/etc/example-name.conf';write(build.rom.path(name),'old')
+                metadata=build.rom.metadata('system','file_contexts')
+                write(metadata,read(metadata)+escape('system/system/etc/example-name.conf')+' -- u:object_r:sepolicy_file:s0\n')
+                build.stage(name,b'new')
+                self.assertEqual(build.changes[build.rom.rel(name)]['label'],'u:object_r:sepolicy_file:s0')
+
+    def test_native_missing_or_conflicting_label_refuses_default(self):
+        from core import read,write
+        for addition in ('','/vendor/etc/test u:object_r:vendor_file:s0\n/vendor/etc/test u:object_r:sepolicy_file:s0\n'):
+            with tempfile.TemporaryDirectory() as tmp:
+                build=self.native_fixture(Path(tmp)/'rom');name='vendor/etc/test'
+                write(build.rom.path(name),'stock');metadata=build.rom.metadata('vendor','file_contexts')
+                write(metadata,read(metadata)+addition)
+                with self.assertRaisesRegex(PatchError,'唯一打包标签'):build.stage(name,b'new')
+                self.assertFalse((build.tree/name).exists())
+                self.assertEqual(read(build.rom.path(name)),'stock')
+
+    def test_native_explicit_exec_label_wins_and_survives_restage(self):
+        from core import write
+        with tempfile.TemporaryDirectory() as tmp:
+            build=self.native_fixture(Path(tmp)/'rom');name='vendor/bin/hw/dolby'
+            write(build.rom.path(name),'stock')
+            expected='u:object_r:hal_dms_default_exec:s0'
+            build.stage(name,b'new','0755',expected);build.stage(name,b'again','0755')
+            self.assertEqual(build.changes[name]['label'],expected)
+
+    def test_new_native_file_and_module_keep_previous_defaults(self):
+        from core import write
+        with tempfile.TemporaryDirectory() as tmp:
+            build=self.native_fixture(Path(tmp)/'rom')
+            build.stage('vendor/etc/new',b'new')
+            self.assertEqual(build.changes['vendor/etc/new']['label'],'u:object_r:vendor_configs_file:s0')
+            build.require_metadata=False;write(build.rom.path('system_ext/etc/existing'),'old')
+            build.stage('system_ext/etc/existing',b'module')
+            self.assertEqual(build.changes['system_ext/etc/existing']['label'],'u:object_r:system_file:s0')
+
     def test_dna_exact_lookup_preserves_hyphen_paths(self):
         from core import context_key,upsert_context
         import re

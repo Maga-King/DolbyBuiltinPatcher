@@ -18,7 +18,7 @@ import zipfile
 import xml.etree.ElementTree as ET
 from pathlib import Path, PurePosixPath
 
-VERSION = '1.0'
+VERSION = '1.0.1'
 ASSETS = Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parent)) / 'assets'
 BEGIN = '; BEGIN MIO DOLBY NATIVE v1'
 END = '; END MIO DOLBY NATIVE v1'
@@ -219,6 +219,29 @@ class Rom:
                             k,v = line.split('=',1); result[k.strip()] = v.strip()
         return result
 
+    def existing_file_label(self, canonical):
+        """Read the unpacker's exact regular-file label, never guess a default.
+
+        This is packing metadata, not the host filesystem's /data label. Accept
+        DNA, legacy Python escaping and literal keys, including slot/SAR prefixes.
+        Ambiguous or missing entries require an explicit label from the caller.
+        """
+        part=canonical.split('/',1)[0]
+        directory,prefix=self.packing_prefix(part,'file_contexts')
+        packpath=prefix+self.rel(canonical)[len(directory):]
+        aliases={context_key(packpath),'/'+re.escape(packpath),'/'+packpath}
+        labels=set()
+        for line in read(self.metadata(part,'file_contexts')).splitlines():
+            fields=line.split()
+            if not fields or fields[0] not in aliases:continue
+            if len(fields)==3 and fields[1]!='--':continue
+            if len(fields) not in (2,3) or not re.fullmatch(r'u:object_r:[A-Za-z0-9_]+:s0(?::[A-Za-z0-9_,.]+)?',fields[-1]):
+                raise PatchError('已有文件的打包标签格式不明确：'+canonical)
+            labels.add(fields[-1])
+        if len(labels)!=1:
+            raise PatchError('已有文件缺少唯一打包标签，拒绝用默认值覆盖：'+canonical)
+        return labels.pop()
+
 def inspect_rom(root, require_metadata=True, enforce_sdk=True):
     rom = Rom(root,require_metadata=require_metadata)
     props = rom.props()
@@ -271,11 +294,16 @@ class Build:
     def stage(self, canonical, data, mode='0644', label=None):
         part = canonical.split('/')[0]
         rel = self.rom.rel(canonical)
+        if label is None:
+            if rel in self.changes:
+                label=self.changes[rel]['label']
+            elif self.require_metadata and self.rom.path(canonical).is_file():
+                label=self.rom.existing_file_label(canonical)
+            else:
+                label = 'u:object_r:vendor_configs_file:s0' if part in ('vendor','odm') else 'u:object_r:system_file:s0'
         path = safe(self.tree,rel)
         path.parent.mkdir(parents=True,exist_ok=True)
         path.write_bytes(data)
-        if label is None:
-            label = 'u:object_r:vendor_configs_file:s0' if part in ('vendor','odm') else 'u:object_r:system_file:s0'
         self.changes[rel] = dict(path=rel,canonical=canonical,partition=part,mode=mode,label=label)
 
     def get(self, canonical):

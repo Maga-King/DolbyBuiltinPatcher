@@ -214,14 +214,9 @@ def compile_all(build):
         version=binary_version(old) if old.is_file() else 33
         key=(debug,version)
         # Preserve the input ROM's exact per-file label when it exists.
-        part=name.split('/')[0]
-        rel=build.rom.rel(name)
         label='u:object_r:sepolicy_file:s0' if not debug else 'u:object_r:vendor_configs_file:s0'
-        metadata_lines=read(build.rom.metadata(part,'file_contexts')).splitlines() if getattr(build,'require_metadata',True) else []
-        for line in metadata_lines:
-            fields=line.split()
-            if len(fields)>=2 and fields[0] in ('/'+rel,'/'+re.escape(rel)):
-                label=fields[-1];break
+        if getattr(build,'require_metadata',True) and old.is_file():
+            label=build.rom.existing_file_label(name)
         build.stage(name,cache[key],label=label)
     # A vendor CIL change doesn't alter framework mapping digest inputs.
     # Preserve each existing sidecar verbatim; both cached and fallback CIL now include the delta.
