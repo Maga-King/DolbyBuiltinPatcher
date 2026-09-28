@@ -15,11 +15,21 @@ public final class RootBridge {
     private final Logger logger;
     private final AtomicBoolean cancelled = new AtomicBoolean();
     private volatile Process current;
+    private boolean writing;
     public RootBridge(Context context, Logger logger) { this.context=context; this.logger=logger; }
     public void log(String message) { logger.log(message); }
     public String model() { return Build.MANUFACTURER + " " + Build.MODEL; }
     public boolean isCancelled() { return cancelled.get(); }
-    public void cancel() { cancelled.set(true); Process p=current; if (p!=null) p.destroy(); }
+    public synchronized void writing(boolean value) throws IOException {
+        if(value && cancelled.get())throw new IOException("已取消，未开始写回 ROM");
+        writing=value;
+        if(value)log("进入关键文件操作阶段；不强制取消。请保持前台，ROM 写入意外中断后先查询事务状态。");
+    }
+    public String nativeCompiler() { return new File(context.getApplicationInfo().nativeLibraryDir,"libsecilc.so").getPath(); }
+    public synchronized void cancel() {
+        if(writing){log("正在写入/回退，请等待事务结束；不会强杀写入进程。");return;}
+        cancelled.set(true); Process p=current; if (p!=null) p.destroy();
+    }
     public String exec(String script, int timeout) throws Exception {
         File output=File.createTempFile("root-out-", ".txt", context.getCacheDir());
         try { run(script, timeout, output); return new String(Files.readAllBytes(output.toPath()), StandardCharsets.UTF_8); }
@@ -42,7 +52,7 @@ public final class RootBridge {
             current=process;
             try (OutputStream stdin=process.getOutputStream()) { stdin.write(script.getBytes(StandardCharsets.UTF_8)); }
             if (!process.waitFor(Math.min(600,Math.max(1,timeout)),TimeUnit.SECONDS)) {
-                process.destroy(); throw new IOException("root 读取超时，未修改系统");
+                process.destroy(); throw new IOException("root 命令超时；若已开始 ROM 写回，请查询事务状态，不要重复修改");
             }
             if (cancelled.get()) throw new IOException("已取消");
             if (process.exitValue()!=0) {

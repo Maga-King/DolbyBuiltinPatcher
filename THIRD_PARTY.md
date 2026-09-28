@@ -10,7 +10,7 @@
 - 私有开发期间使用过 AlphaDroid/Lunaris 移植材料；这不表示已获得所有二进制的公开分发许可。
   **此公开仓库不分发 Dolby APK、专有 `.so`、HAL 可执行文件或包含它们的 payload ZIP。**
 
-## SELinuxProject 与 Windows 移植
+## SELinuxProject 与 Windows / Android 移植
 
 - 上游：[SELinuxProject/selinux](https://github.com/SELinuxProject/selinux)，3.9 基础提交
   `919e9e64cc4b20f5a1e4df1e38cce1bfe15aff09`。
@@ -20,6 +20,8 @@
   以及 `native/` 下 MinGW 兼容头与构建脚本。
 - Android netlink 配置位参考 [AOSP external/selinux](https://android.googlesource.com/platform/external/selinux/+/refs/heads/main/libsepol/src/write.c)。
 - 本仓库不附带构建出的 Windows EXE、静态库或 MinGW 工具链；如分发自行构建的程序，仍须遵守相关许可证义务。
+- Android ARM64 策略编译器使用同一份公开源码，经 `native/build-android.ps1` 和 NDK 构建；
+  APK 内的 `libsecilc.so` 为可执行文件，不是专有 Dolby 库。secilc/libsepol 许可证打包在 `assets/dolby_assets/licenses`。
 
 ## 工具与依赖
 

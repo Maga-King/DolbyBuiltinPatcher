@@ -2,15 +2,30 @@
 import re
 from core import ASSETS, PatchError, read, xml_parse, xml_bytes
 
-RUNTIME_VERSION='0.6.1-early4-unpinned'
+RUNTIME_VERSION='0.6.1-selfmount-preview4'
 BIND_KEYS=('ro.system.build.fingerprint','ro.vendor.build.fingerprint','ro.board.platform')
 
-MODULE_README='''KSU 目标 ROM 专用模块（早期加载版）
+MODULE_README='''KSU 目标 ROM 专用模块（杜比自挂载测试版）
+
+preview3：刷入时安装同签名 App 更新，保留系统底包及数据；失败时开机完成后补试一次。
+preview4：安装后及相同 APK 跳过安装前，按系统包身份恢复杜比 CE/DE 数据目录标签。
+修复首次普通安装后晋升为系统 App、DE 目录仍保留旧标签造成设置不能写盘的问题。
+data/app 中的系统更新不等于普通用户 App，仍需诊断确认系统身份及参数读写。
+不改隐藏设置，不授予 Root，不强制降级。卸载模块不自动删除 App 和用户数据。
+单文件 bind 失败时在私有暂存区复制兜底（最多 128 MiB，内存余量 256 MiB）；
+目录挂载失败仍停止接入，不能保证所有机型均可开机。音频门控不变，无常驻补挂。
 
 仅修改生成模块，不改输入 ROM、内置补丁合并/标签/SELinux/写回逻辑。
 模块直接导出完整杜比相关 sepolicy.rule，不运行 secilc，不替换整份策略。
 注入器可能跳过无效规则，但并不保证过滤所有运行或开机问题。
-需要支持 initrc 注入及同步 post-mount 的 KernelSU 和挂载元模块。
+需要支持 initrc 注入及同步 post-mount 的 KernelSU，以及 init 挂载命名空间。
+当前 KSU 早期 RC 接口需要开机早期可读的 /metadata；没有 watchdog 目录则使用 /metadata/ksu。
+watchdog 只是上游选择的目录，不代表本模块运行看门狗、后台监控或轮询。
+无可用 metadata 的设备暂不支持本加载路线，不能把早期文件随意搬到 /data 后继续声称兼容。
+杜比文件在 files/，没有标准 system/；skip_mount 和 skip_mountify 用来避免重复挂载。
+模块自行合并目录并递归 bind，只处理自己的文件；不接管其他模块的挂载。
+无需依赖 OverlayFS 或元模块私有 API，不注入 VFS 驱动，不修改元模块配置。
+切换元模块后，请卸载本模块 → 重启 → 重新安装。更换 ROM 后需重新生成。
 不支持时拒绝安装/激活，不采用定时猜测或杀 HWS 的后备方案。
 
 早期仅声明 HIDL 支持和 DMS；挂载后保留原有子挂载（包括 C17 OPEX）。
@@ -24,8 +39,10 @@ restart_period 3 限制重启频率，不是每 3 秒轮询或定时重启健康
 超时有限，无开机后的常驻轮询。模块 action 只检测一次状态。
 
 这是基于目标快照生成的包，不保证任意 ROM、元模块、机型均兼容。
-实测参考：一加13 C17 Android17 DSU + KSU + mountify2.0.3；系统原本为 Permissive。
-Enforcing 与其他组合需另行验证，成功生成 ZIP 不等于目标机实测通过。
+本次自挂载后端尚未完成 Android 真机验证。旧挂载版实测不能继承到新后端。
+Mountify、Hybrid Mount、Magic Mount-rs 等做了源码核对，不等于各版本均实测通过。
+VFS/隐藏功能可能改变文件可见性；不会擅自改全局隔离策略或许诺全兼容。
+Enforcing 与各机型组合需另行验证，成功生成 ZIP 不等于目标机实测通过。
 不替换原厂 libaudioeffecthal.qti.so，不挂载整份 CIL/precompiled_sepolicy。
 不会禁用其他应用或接管官方音效开关，保留 Lunaris App 的现有功能。
 
@@ -33,7 +50,10 @@ Enforcing 与其他组合需另行验证，成功生成 ZIP 不等于目标机�
 安装放行不等于通刷，仍应按当前 ROM 生成，不建议叠加其他杜比实现。
 升级时更新本模块自有早期 metadata；保留必要工具、路径及操作失败处理。
 更换 ROM 后重新生成。solidify/ 仅提供固化参考，不会自动写入分区。
-检测：action.sh、.runtime/status、gate.log、codec.log、recover.log、preserve.log。
+检测：Action 中文诊断；最近一份报告保存在 .runtime/diagnostic-last.txt。
+单次诊断最多约 47 秒，包含文件大小/挂载、包注册、App 进程视图、服务及相关日志。
+不启动 App、不修改应用权限/卸载策略、不持续抓日志，不把服务注册当成播放成功。
+自挂载日志：.runtime/self-mount.log；启动日志：gate.log、codec.log、recover.log。
 手工修改模块 RC 或启用状态后，须通过 KSU 刷新 initrc 缓存并重启；
 只修改磁盘文件不代表当前 init 已加载新定义。正常安装由 KSU 管理缓存。
 service.sh 开机一次检查 initrc 缓存；仅发现不一致时限时刷新一次。
@@ -92,23 +112,25 @@ def export_boot(build,folder,put,late,mounted,bindings,device_target):
     put('early/target.tsv',''.join(k+'\t'+v+'\n' for k,v in bindings.items()).encode())
     put('early/early.sh',(ASSETS/'ksu/boot/early.sh').read_bytes(),'0755')
     put('initrc/dolby.rc',runtime_rc.encode())
-    for name in ('gate.sh','commit.sh','recover.sh','codec.sh','preserve.sh','service.sh','install-early.sh','uninstall.sh','initrc-cache.sh'):
+    for name in ('gate.sh','commit.sh','recover.sh','codec.sh','service.sh','install-early.sh','uninstall.sh','initrc-cache.sh','runtime-paths.sh','mount-engine.sh','self-mount.sh','install-app.sh'):
         put(name,(ASSETS/'ksu/boot'/name).read_bytes(),'0755')
-    for stage,arg in [('post-fs-data','save'),('post-mount','restore')]:
-        put(stage+'.sh',f'#!/system/bin/sh\nexec /system/bin/sh "${{0%/*}}/preserve.sh" {arg}\n'.encode(),'0755')
+    put('post-mount.sh',b'#!/system/bin/sh\nexec /system/bin/sh "${0%/*}/self-mount.sh"\n','0755')
+    put('skip_mount',b'Dolby owns its files/ payload; do not mount it twice.\n')
+    put('skip_mountify',b'Dolby self-mount\n')
     roots=sorted({'/'+target.strip('/').split('/')[0]+'/'+target.strip('/').split('/')[1] for _,target,_ in mounted})
     if any(not re.fullmatch(r'/(system|system_ext|vendor|odm|product)/[A-Za-z0-9_.-]+',p) for p in roots):
         raise PatchError('模块覆盖目录无法安全表示')
     put('mount-roots.txt',('\n'.join(roots)+'\n').encode())
     put('mode',b'activate\n')
     customize=read(ASSETS/'ksu/customize.sh')
-    customize=customize[:customize.index("ui_print 'Target-specific")]
+    customize=customize.split('# RUNTIME_INSTALL',1)[0]
     customize+='\n. "$MODPATH/install-early.sh"\n'
     put('customize.sh',customize.encode(),'0755')
     return dict(runtime_version=RUNTIME_VERSION,early_vintf=early,child_mount_roots=roots,
                 hws_restart=False,audio_restart=False,codec_declaration='after payload validation',
                 codec_recovery=dict(init_restart=True,interface_start=True,restart_period_seconds=3,
                                     periodic_polling=False,internal_crash_root_cause_fixed=False),
-                requires=['KernelSU initrc injection','synchronous post-mount stage','compatible mounting metamodule'],
-                tested_reference='OnePlus13 C17 SDK37 DSU / mountify2.0.3 / permissive',
+                requires=['KernelSU initrc injection','synchronous post-mount stage','init mount namespace'],
+                mounting_backend='Dolby-only recursive bind tree; preserves existing submounts',
+                tested_reference='self-mount preview: no Android device validation yet',
                 universal_compatibility=False)

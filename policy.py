@@ -1,5 +1,6 @@
 """Rebuild policy from selected ROM inputs, with both normal and debug chains."""
 import re
+import os
 import shutil
 import struct
 import subprocess
@@ -11,6 +12,7 @@ def semantic_failure(returncode, log):
     # secilc returns libsepol's negative error values directly. Windows exposes
     # these as unsigned DWORDs; they are not Windows exception/crash statuses.
     normal_error=(returncode & 0xffffffff) in (1,0xffffffff,0xfffffffe,0xfffffffd)
+    if os.name!='nt' and returncode in (253,254,255):normal_error=True
     diagnostic=re.search(r'Failed to (?:resolve|compile|build|verify|generate)|Policy must|Invalid ',log)
     resource_error=re.search(r'out of memory|cannot allocate|failed to (?:open|write|read|stat)',log,re.I)
     return normal_error and bool(diagnostic) and not resource_error
@@ -62,8 +64,8 @@ def inputs(build, debug):
 def compile_all(build):
     from policy_rules import catalog, filter_compilable, magisk_rules, select, symbols
     from policy_sources import UPSTREAM, adapt, context_evidence, ensure_contexts, stock_rules, upstream_delta
-    compiler=ASSETS/'native/secilc.exe'
-    if not compiler.is_file():raise PatchError('内置 Windows secilc.exe 缺失，请保持工具目录完整')
+    compiler=Path(getattr(build,'policy_compiler',ASSETS/'native/secilc.exe'))
+    if not compiler.is_file():raise PatchError('SELinux 编译器缺失，请保持工具完整：'+str(compiler))
     targets=[]
     for part in ('odm','vendor'):
         for suffix in ('','_debug'):

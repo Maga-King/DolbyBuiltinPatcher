@@ -5,6 +5,7 @@ mkdir -p "$M/.runtime"
 /system/bin/sh "$M/initrc-cache.sh" repair > "$M/.runtime/initrc-cache.log" 2>&1
 n=0
 while [ "$(getprop sys.boot_completed)" != 1 ] && [ "$n" -lt 45 ]; do n=$((n+1)); sleep 2; done
+[ "$(getprop sys.boot_completed)" != 1 ] || [ -e "$M/disable" ] || [ -e "$M/remove" ] || [ -e "$M/update" ] || /system/bin/sh "$M/install-app.sh"
 mkdir -p "$M/.runtime"
 {
     getprop sys.boot_completed

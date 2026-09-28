@@ -436,6 +436,74 @@ class AdbTests(unittest.TestCase):
                 patch_local('rom',build_only=True);apply.assert_not_called()
 
 class KsuTests(unittest.TestCase):
+    def test_selfmount_payload_does_not_compete_with_metamodule(self):
+        from pathlib import Path
+        import ksu_module, ksu_boot
+        module=Path(ksu_module.__file__).read_text(encoding='utf-8')
+        boot=Path(ksu_boot.__file__).read_text(encoding='utf-8')
+        self.assertIn("out='files/'+name",module)
+        self.assertIn("put('skip_mount'",boot)
+        self.assertIn("put('skip_mountify'",boot)
+        self.assertNotIn("put('post-fs-data.sh'",boot)
+        self.assertIn('卸载本模块→重启→重新安装',module)
+        self.assertNotIn("'preserve.sh','service.sh'",boot)
+
+    def test_selfmount_is_bounded_and_does_not_control_services(self):
+        text=(ASSETS/'ksu/boot/self-mount.sh').read_text(encoding='utf-8')
+        for forbidden in ('ctl.start','ctl.stop','ctl.restart','killall','sleep ','rm -rf'):
+            self.assertNotIn(forbidden,text)
+        self.assertIn('timeout -s TERM -k 3 25',text)
+        self.assertIn('mount() { "$BB" mount "$@"; }',text)
+        self.assertIn('umount() { "$BB" umount "$@"; }',text)
+        self.assertIn('/proc/1/ns/mnt',text)
+        self.assertIn('mounted-boot',text)
+        self.assertIn('rollback_publications',text)
+        self.assertIn('runtime-paths.sh',(ASSETS/'ksu/boot/gate.sh').read_text(encoding='utf-8'))
+        self.assertIn('remount,bind,ro "$W/tree/$n" "$real"',text)
+        engine=(ASSETS/'ksu/boot/mount-engine.sh').read_text(encoding='utf-8')
+        self.assertIn('remount,bind,ro "$src" "$dst"',engine)
+        self.assertNotIn('*[!a-zA-Z0-9_./@+-]*',engine)
+
+    def test_app_update_is_bounded_and_never_downgrades_or_changes_hiding(self):
+        text=(ASSETS/'ksu/boot/install-app.sh').read_text(encoding='utf-8')
+        self.assertIn('pm install -r --user 0',text)
+        self.assertIn('timeout -s TERM -k 2 50',text)
+        self.assertIn('set -o pipefail',text)
+        self.assertIn('2>&1 | "$BB" tee',text)
+        self.assertIn('cmp -s "$APK" "$current"',text)
+        for forbidden in ('pm uninstall','pm clear','install -r -d','profile set','setenforce','while '):
+            self.assertNotIn(forbidden,text)
+        self.assertIn('install-app.sh',(ASSETS/'ksu/boot/service.sh').read_text(encoding='utf-8'))
+
+    def test_copy_fallback_is_memory_bounded_and_removes_bind_before_copy(self):
+        text=(ASSETS/'ksu/boot/mount-engine.sh').read_text(encoding='utf-8')
+        self.assertIn('134217728',text)
+        self.assertIn('MemAvailable:',text)
+        self.assertLess(text.index('umount "$dst"'),text.index('cp -p "$src" "$dst"'))
+        self.assertIn('[ -z "$(mount_id "$dst")" ] || return 1',text)
+
+    def test_app_label_migration_runs_even_without_reinstall(self):
+        text=(ASSETS/'ksu/boot/install-app.sh').read_text(encoding='utf-8')
+        self.assertIn('/data/user_de/0/org.lunaris.dolby /data/user/0/org.lunaris.dolby',text)
+        self.assertIn('restorecon -RF "$path"',text)
+        branch=text.split('if cmp -s "$APK" "$current"; then',1)[1].split('fi',1)[0]
+        self.assertIn('repair_app_data_labels || exit 1',branch)
+        self.assertEqual(text.count('repair_app_data_labels || exit 1'),2)
+        self.assertNotIn('chcon u:object_r:privapp_data_file',text)
+
+    def test_metadata_fallback_and_installer_chinese(self):
+        paths=(ASSETS/'ksu/boot/runtime-paths.sh').read_text(encoding='utf-8')
+        self.assertIn('/metadata/watchdog/ksu',paths)
+        self.assertIn('/metadata/ksu',paths)
+        early=(ASSETS/'ksu/boot/early.sh').read_text(encoding='utf-8')
+        self.assertIn('P=${0%/*}',early)
+        installer=(ASSETS/'ksu/boot/install-early.sh').read_text(encoding='utf-8')
+        self.assertIn('dolby_preinit_base',installer)
+        self.assertIn('卸载本模块 → 重启 → 重新安装',installer)
+        for line in installer.splitlines():
+            if 'abort ' in line or line.startswith('ui_print '):
+                self.assertTrue(any('\u4e00' <= ch <= '\u9fff' for ch in line),line)
+
     def test_module_policy_does_not_call_native_compiler(self):
         from ksu_module import ModuleBuild
         sentinel=SimpleNamespace()
@@ -507,7 +575,10 @@ class KsuTests(unittest.TestCase):
         self.assertIn('cmp -s "$MODDIR/.runtime/boot" /proc/sys/kernel/random/boot_id',text)
         self.assertIn('getprop init.svc.$name',text)
         self.assertNotIn('ctl.restart',text)
-        self.assertNotIn('while ',text)
+        self.assertNotIn('sleep ',text)
+        self.assertIn('timeout -s TERM -k 2 45',text)
+        self.assertIn('dumpsys package',text)
+        self.assertNotIn('pm install',text)
 
     def test_initrc_cache_guard_is_bounded_and_not_hot_reload(self):
         text=(ASSETS/'ksu/boot/initrc-cache.sh').read_text(encoding='utf-8')

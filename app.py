@@ -6,6 +6,14 @@ from pathlib import Path
 from core import Build, inspect_rom, apply_session, save_json
 from patcher_workflow import history_root, patch_local
 
+def console_log(message):
+    # A windowed PyInstaller executable launched by PowerShell may inherit an
+    # invalid stdout handle. Logging must not abort a build or mask its error.
+    try:
+        if sys.stdout is not None:print(message,flush=True)
+    except (OSError,ValueError):
+        pass
+
 def main():
     parser=argparse.ArgumentParser(description='ColorOS 17 Dolby native patcher')
     parser.add_argument('--rom');parser.add_argument('--output')
@@ -29,8 +37,7 @@ def main():
         app=App()
         if args.gui_smoke:app.after(1500,app.destroy)
         app.mainloop();return 0
-    def log(s):
-        if sys.stdout:print(s,flush=True)
+    log=console_log
     try:
         if args.module:
             from ksu_module import generate_module

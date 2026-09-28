@@ -1,5 +1,5 @@
 #!/system/bin/sh
-P=/metadata/watchdog/ksu/mio_dolby_c17_generated
+P=${0%/*}
 exec > "$P/early.log" 2>&1
 tab=$(printf '\t')
 while IFS="$tab" read -r source target expected label; do

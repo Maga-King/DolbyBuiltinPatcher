@@ -4,7 +4,8 @@
 M=${0%/*}
 BB=/data/adb/ksu/bin/busybox
 KSUD=/data/adb/ksud
-CACHE=/metadata/watchdog/ksu/modules.rc
+. "$M/runtime-paths.sh" || exit 1
+CACHE="$(dolby_preinit_base)/modules.rc"
 PENDING=/data/adb/modules_update/mio_dolby_c17_generated
 case "${1:-check}" in check|repair) ;; *) echo 'Usage: initrc-cache.sh [check|repair]'; exit 2 ;; esac
 if [ -f "$M/disable" ] || [ -f "$M/remove" ] || [ -d "$PENDING" ]; then

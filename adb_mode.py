@@ -93,6 +93,10 @@ class Adb:
         self.shell('test -d '+shlex.quote(root+'/config')+'\ntest ! -L '+shlex.quote(root+'/config'))
         return root
 
+    def push(self,source,destination):
+        result=execute([adb_path(),'-s',self.serial,'push',str(source),destination],capture_output=True,timeout=600)
+        if result.returncode:raise PatchError('ADB 推送失败：'+result.stderr.decode(errors='replace'))
+
     def layout(self,root):
         result={}
         for part in ('system','system_ext','vendor','odm','product'):
@@ -224,7 +228,7 @@ def make_upload(session,restore=False):
     return archive
 
 
-def apply_remote(session,restore=False,log=lambda s:None):
+def apply_remote(session,restore=False,log=lambda s:None,transport=None):
     session=Path(session);connection=json.loads(read(session/'adb-session.json'))
     if connection.get('source_kind')=='adb-live-readonly' or connection.get('writeback_allowed') is False:
         raise PatchError('实时系统快照禁止写回')
@@ -232,7 +236,9 @@ def apply_remote(session,restore=False,log=lambda s:None):
     if connection.get('state') in ('prepared','running','recovery-required'):
         raise PatchError('此任务状态尚未解决，请先恢复任务状态，不要重复写入：'+str(session))
     if bool(report.get('applied'))==bool(not restore):raise PatchError('该构建已应用' if not restore else '该构建尚未应用')
-    adb=Adb(connection['serial'],log);root=adb.validate_root(connection['root'])
+    adb=transport if transport is not None else Adb(connection['serial'],log)
+    if adb.serial!=connection['serial']:raise PatchError('设备序列号不一致')
+    root=adb.validate_root(connection['root'])
     if root!=connection['root']:raise PatchError('手机解包目录指向已改变，拒绝修改')
     archive=make_upload(session,restore)
     token=uuid.uuid4().hex
@@ -241,8 +247,7 @@ def apply_remote(session,restore=False,log=lambda s:None):
     upload='/data/local/tmp/dolby-upload-'+token+'.tar'
     adb.shell('test ! -e '+shlex.quote(upload)+'\ntest ! -e '+shlex.quote(job))
     log('推送改动到设备 '+adb.serial+'，手机备份：'+job)
-    result=execute([adb_path(),'-s',adb.serial,'push',str(archive),upload],capture_output=True,timeout=600)
-    if result.returncode:raise PatchError('ADB 推送失败：'+result.stderr.decode(errors='replace'))
+    adb.push(archive,upload)
     q=shlex.quote
     # Restrict the backup location as carefully as the ROM destination.
     backup_parent=parent+'/.dolby-patcher-backups'
