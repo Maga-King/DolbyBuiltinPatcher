@@ -22,6 +22,7 @@ import java.util.concurrent.Executors;
 
 public final class MainActivity extends Activity {
     private static final int SAVE=21;
+    private static final String COMPAT_WARNING="警告：应要求不按 SDK、机型或设备指纹限制生成，不保证兼容。刷入可能导致无声、应用崩溃或无法开机，后果自负。请先备份并准备禁用模块的恢复方式。";
     private final ExecutorService worker=Executors.newSingleThreadExecutor();
     private final Handler handler=new Handler(Looper.getMainLooper());
     private TextView status,logs;
@@ -52,9 +53,10 @@ public final class MainActivity extends Activity {
         setContentView(scroll);
         page.addView(text("本机读取 / 离线构建",13,0xff65dec9));
         TextView title=text("杜比模块生成器",29,Color.WHITE); title.setTypeface(null,Typeface.BOLD); page.addView(title);
-        page.addView(text("科比 · LunarisDolby 来源\n预览版 0.1.0 · 建议 KSU + MOUNTIFY",14,0xff9db2c0));
+        page.addView(text("科比 · LunarisDolby 来源\n预览版 0.1.1 · 建议 KSU + MOUNTIFY",14,0xff9db2c0));
         status=text("等待操作",17,0xff65dec9); page.addView(status);
         page.addView(text("只读当前系统，生成 ZIP 后由你保存和刷入。\n不自动安装、不重启、不常驻。请保持前台等待完成。\n读取可能包含其他模块挂载，建议在未启用杜比的系统生成。",14,0xffc4cfd7));
+        page.addView(text(COMPAT_WARNING,14,0xffffc078));
         root=button("① 检查环境并授权 ROOT",page);
         generate=button("② 读取系统并生成模块",page);
         save=button("③ 保存模块 ZIP",page); save.setEnabled(false);
@@ -65,9 +67,9 @@ public final class MainActivity extends Activity {
         String stored=getPreferences(0).getString("lastZip",null);
         if (stored!=null && new File(stored).isFile()) { lastZip=new File(stored);save.setEnabled(true); }
         root.setOnClickListener(v->start(false));
-        generate.setOnClickListener(v->new AlertDialog.Builder(this).setTitle("读取当前系统")
-            .setMessage("将申请 root，只读取系统文件，并在 App 私有目录生成 ZIP。不会写运行分区或安装模块。取消安装限制不代表跨 ROM 通用。继续吗？")
-            .setPositiveButton("开始生成",(d,w)->start(true)).setNegativeButton("取消",null).show());
+        generate.setOnClickListener(v->new AlertDialog.Builder(this).setTitle("生成风险警告")
+            .setMessage(COMPAT_WARNING+"\n\n将申请 root，只读取系统文件，并在 App 私有目录生成 ZIP。不会写运行分区或安装模块。文件读取、配置结构与打包错误仍会报告。继续吗？")
+            .setPositiveButton("知悉风险，继续生成",(d,w)->start(true)).setNegativeButton("取消",null).show());
         cancel.setOnClickListener(v->{ if (bridge!=null) bridge.cancel(); log("请求取消，将在安全边界结束。"); });
         save.setOnClickListener(v->{Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT).setType("application/zip").addCategory(Intent.CATEGORY_OPENABLE);
             intent.putExtra(Intent.EXTRA_TITLE,"杜比全景+解码器_KSU.zip"); startActivityForResult(intent,SAVE);});

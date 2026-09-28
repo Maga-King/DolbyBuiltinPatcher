@@ -9,6 +9,51 @@ import xml.etree.ElementTree as ET
 from core import (ASSETS, PatchError, apply_session, append_cil, merge_effects, merge_codecs,
                   merge_framework, safe, sha, save_json)
 
+class MobileSdkTests(unittest.TestCase):
+    def test_optional_sdk_gate_preserves_native_default(self):
+        from core import inspect_rom
+        domains=('hal_dms_default','hal_dms_default_exec','hal_dms_hwservice',
+                 'hal_aidl_dms_default','hal_aidl_dms_default_exec','hal_aidl_dms_service')
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            required=('system/etc/init', 'system_ext/etc/selinux/system_ext_file_contexts',
+                      'vendor/etc/selinux/plat_sepolicy_vers.txt',
+                      'vendor/etc/selinux/vendor_sepolicy.cil','system/etc/selinux/plat_sepolicy.cil',
+                      'system/bin/hwservicemanager')
+            for name in required:
+                path=root/name;path.parent.mkdir(parents=True,exist_ok=True);path.touch()
+            (root/'vendor/etc/selinux/vendor_sepolicy.cil').write_text(
+                '\n'.join('(type '+domain+')' for domain in domains),encoding='utf-8')
+            for sdk in ('35','36','37','38',''):
+                with self.subTest(sdk=sdk):
+                    rom=SimpleNamespace(parts={'system':root/'system'},path=lambda p:root/p,
+                                        metadata=lambda part,suffix:root/(part+'_'+suffix),
+                                        props=lambda:{'ro.system.build.version.sdk':sdk})
+                    with patch('core.Rom',return_value=rom),patch('discovery.discover',return_value={}):
+                        self.assertEqual(inspect_rom(root,enforce_sdk=False)[1]['sdk'],sdk)
+                        if sdk=='37':self.assertEqual(inspect_rom(root)[1]['sdk'],sdk)
+                        else:
+                            with self.assertRaisesRegex(PatchError,'SDK'):inspect_rom(root)
+
+    def test_module_constructor_forwards_sdk_option(self):
+        from ksu_module import ModuleBuild
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)/'rom'
+            for enabled in (True,False):
+                with patch('core.inspect_rom',return_value=(SimpleNamespace(root=root),{})) as inspect:
+                    ModuleBuild(root,Path(tmp)/'output',enforce_sdk=enabled)
+                    inspect.assert_called_once_with(root,require_metadata=False,enforce_sdk=enabled)
+
+    def test_mobile_entry_explicitly_disables_sdk_gate(self):
+        import ast
+        source=Path(__file__).parent/'android/app/src/main/python/mobile_bridge.py'
+        tree=ast.parse(source.read_text(encoding='utf-8'))
+        calls=[node for node in ast.walk(tree) if isinstance(node,ast.Call)
+               and isinstance(node.func,ast.Name) and node.func.id=='ModuleBuild']
+        self.assertEqual(len(calls),1)
+        options={kw.arg:ast.literal_eval(kw.value) for kw in calls[0].keywords}
+        self.assertIs(options['enforce_sdk'],False)
+
 class MergeTests(unittest.TestCase):
     def test_real_vendor_xml_namespaces_and_include_root(self):
         effects=(ASSETS/'effects-reference.xml').read_bytes()

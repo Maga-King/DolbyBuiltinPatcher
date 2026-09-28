@@ -219,11 +219,11 @@ class Rom:
                             k,v = line.split('=',1); result[k.strip()] = v.strip()
         return result
 
-def inspect_rom(root, require_metadata=True):
+def inspect_rom(root, require_metadata=True, enforce_sdk=True):
     rom = Rom(root,require_metadata=require_metadata)
     props = rom.props()
     sdk = props.get('ro.system.build.version.sdk', props.get('ro.build.version.sdk', ''))
-    if sdk != '37':
+    if enforce_sdk and sdk != '37':
         raise PatchError(f'此版针对 Android 17 / SDK 37，所选 ROM SDK 为 {sdk or "未知"}')
     if props.get('hwservicemanager.disabled')=='true':
         raise PatchError('ROM 属性显式禁用了 hwservicemanager，需要先处理启动配置')
@@ -255,8 +255,8 @@ def inspect_rom(root, require_metadata=True):
                  'support_scope':'ARM64 Qualcomm AIDL audio + existing Dolby SELinux domains; no device-name lock'}
 
 class Build:
-    def __init__(self, root, output, log=lambda s: None, require_metadata=True):
-        self.rom,self.info = inspect_rom(root,require_metadata=require_metadata)
+    def __init__(self, root, output, log=lambda s: None, require_metadata=True, enforce_sdk=True):
+        self.rom,self.info = inspect_rom(root,require_metadata=require_metadata,enforce_sdk=enforce_sdk)
         self.require_metadata=require_metadata
         output = Path(output).resolve()
         if output.is_relative_to(self.rom.root) or self.rom.root.is_relative_to(output):

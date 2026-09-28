@@ -66,7 +66,8 @@ def generate(runtime_dir, work_dir, bridge):
     info.update(source_kind='android-root-live-readonly',writeback_allowed=False)
     save_json(job/'snapshot.json',info)
     if bridge.isCancelled():raise PatchError('用户取消了本次生成')
-    session=ModuleBuild(root,job/'build',log,info['libraries'],info).run()
+    log('警告：应要求不按 SDK、机型或设备指纹限制生成；不保证兼容，刷入后果自负。')
+    session=ModuleBuild(root,job/'build',log,info['libraries'],info,enforce_sdk=False).run()
     result=session/'Dolby_C17_KSU.zip'
     log('模块已生成。请选择保存位置，再自行交给 KSU 管理器安装。')
     return json.dumps({'zip':str(result),'session':str(session),'installed':False},ensure_ascii=False)

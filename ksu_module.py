@@ -63,8 +63,8 @@ def device_manifest(build):
 
 
 class ModuleBuild(Build):
-    def __init__(self,root,output,log=lambda s:None,inventory=None,source_info=None):
-        super().__init__(root,output,log,require_metadata=False)
+    def __init__(self,root,output,log=lambda s:None,inventory=None,source_info=None,*,enforce_sdk=True):
+        super().__init__(root,output,log,require_metadata=False,enforce_sdk=enforce_sdk)
         self.source_info=source_info or {'source_kind':'local-rom','rom_modified':False}
         if inventory is not None:self.library_inventory=inventory
 
