@@ -41,3 +41,6 @@ Thumbs.db
 /assets/payload.zip
 /assets/adb/
 /assets/native/
+**/build/
+**/.gradle/
+**/local.properties
