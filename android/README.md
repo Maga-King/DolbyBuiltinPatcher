@@ -1,4 +1,4 @@
-# 手机版 0.2.0（开发预览）
+# 手机版 0.2.1（开发预览）
 
 科比 · 基于 LunarisDolby 配套资产，Java + Chaquopy 调用与电脑端相同的补丁引擎。
 ARM64，界面最低 Android 8；面向已支持的 ColorOS 17 音频结构，不是任意手机通用移植器。
@@ -14,6 +14,8 @@ ARM64，界面最低 Android 8；面向已支持的 ColorOS 17 音频结构，�
 两种模块生成均用“保存模块 ZIP”导出，再自行交给 KSU 安装。
 模块生成不按 SDK、机型、设备指纹拦截；会提示风险，不保证生成包可用。
 原生 ROM 内置沿用电脑端结构要求及策略编译，不把模块 sepolicy.rule 当成系统预编译策略。
+需解包同一套 ROM 的 system、system_ext、vendor、odm、product 五分区，并保留 DNA `config`；
+不是直接选择 `.img` / `super.img`。最小范围挂载仅作用于生成模块，不改变原生内置流程。
 不会自动刷分区、刷模块或重启，没有后台服务、开机广播、网络权限或常驻轮询。
 
 ## ROM 修改与恢复
@@ -40,7 +42,8 @@ ARM64，界面最低 Android 8；面向已支持的 ColorOS 17 音频结构，�
 
 ## 模块同步修复
 
-使用 `0.6.1-selfmount-preview4`：独立载荷、自挂载、保留子挂载、单文件 bind 的限额复制兜底，
+使用 `0.6.1-selfmount-preview5`：已有文件单独 bind，新增文件仅合并最近已有父目录，不新增 OverlayFS；
+保留独立载荷、自挂载、子挂载保留、单文件 bind 的限额复制兜底，
 同签名 App 更新安装与 priv-app 数据标签修复。Action 为中文只读诊断。
 切换元模块后：卸载杜比模块 → 重启 → 重装。需要可用的早期 initrc 注入及早期可读的 `/metadata`；
 `watchdog` 子目录不是必需项。没有接口的旧 SukiSU 不能强行跳过。

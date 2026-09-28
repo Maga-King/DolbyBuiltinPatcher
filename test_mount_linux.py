@@ -52,6 +52,101 @@ class MountTests(unittest.TestCase):
                     'record_publication "$ORIGINAL"\n'
                     'mount -o remount,bind,ro "$ORIGINAL"')
 
+    def plan(self):
+        self.script('set -e\n: > "$W/targets"\nplan_tree "$ORIGINAL" "$PAYLOAD"')
+        return [line.split('\t') for line in (self.work/'targets').read_text().splitlines()]
+
+    def publish_minimal(self):
+        plan=self.plan()
+        for n,(kind,target,payload) in enumerate(plan):
+            stage=self.work/('minimal-'+str(n))
+            if kind=='F':
+                self.script(f'stage_payload "{payload}" "{stage}"')
+            else:
+                self.script(f'merge_tree "{target}" "{payload}" "{stage}" "{target}"')
+        for n,(kind,target,_) in enumerate(plan):
+            stage=self.work/('minimal-'+str(n))
+            operation='-o bind' if kind=='F' else '--rbind'
+            self.script(f'set -e\ncp /proc/self/mountinfo "$W/before"\n'
+                        f'mount {operation} "{stage}" "{target}"\nrecord_publication "{target}"\n'
+                        f'mount -o remount,bind,ro "{stage}" "{target}"')
+        return plan
+
+    def test_minimal_new_hw_service_never_visits_horae(self):
+        (self.original/'bin/hw').mkdir(parents=True)
+        (self.original/'bin/horae').write_text('stock')
+        (self.original/'bin/hw/stock-hal').write_text('hal')
+        (self.payload/'bin/hw').mkdir(parents=True)
+        (self.payload/'bin/hw/dolby').write_text('dolby')
+        plan=self.plan()
+        self.assertEqual([(k,t) for k,t,p in plan],[('D',str(self.original/'bin/hw'))])
+        # Reproduce the reported unrelated-file failure if it is ever touched.
+        self.script('mount() { case "$*" in *horae*) return 1;; esac; command mount "$@"; }\n'
+                    'merge_tree "$ORIGINAL/bin/hw" "$PAYLOAD/bin/hw" "$W/probe" "$ORIGINAL/bin/hw"')
+        self.publish_minimal()
+        self.assertEqual((self.original/'bin/hw/dolby').read_text(),'dolby')
+        self.assertEqual((self.original/'bin/horae').read_text(),'stock')
+        targets=(self.work/'published').read_text()
+        self.assertNotIn(str(self.original/'bin/horae'),targets)
+        self.script('rollback_publications')
+        self.assertFalse((self.original/'bin/hw/dolby').exists())
+
+    def test_minimal_existing_files_are_independent_readonly_binds(self):
+        (self.original/'etc').mkdir();(self.payload/'etc').mkdir()
+        for name in ('one.xml','two.xml'):
+            (self.original/'etc'/name).write_text('old')
+            (self.payload/'etc'/name).write_text('new')
+        plan=self.publish_minimal()
+        self.assertEqual([kind for kind,_,_ in plan],['F','F'])
+        for _,target,_ in plan:
+            self.assertEqual(Path(target).read_text(),'new')
+            with self.assertRaises(OSError):Path(target).write_text('bad')
+        self.script('rollback_publications')
+        self.assertEqual((self.original/'etc/one.xml').read_text(),'old')
+
+    def test_minimal_new_directory_requires_nearest_existing_parent(self):
+        (self.original/'lib64').mkdir()
+        (self.payload/'lib64/dolbyaidl').mkdir(parents=True)
+        (self.payload/'lib64/dolbyaidl/new.so').write_text('new')
+        self.assertEqual([(k,t) for k,t,_ in self.plan()],[('D',str(self.original/'lib64'))])
+
+    def test_minimal_missing_child_absorbs_other_targets_in_same_directory(self):
+        (self.original/'etc').mkdir();(self.payload/'etc').mkdir()
+        (self.original/'etc/existing').write_text('old')
+        (self.payload/'etc/existing').write_text('new')
+        (self.payload/'etc/added').write_text('new')
+        self.assertEqual([(k,t) for k,t,_ in self.plan()],[('D',str(self.original/'etc'))])
+
+    def test_minimal_rejects_symlink_type_collision_and_overlapping_roots(self):
+        (self.original/'file').symlink_to('/dev/null')
+        (self.payload/'file').write_text('new')
+        result=self.script(': > "$W/targets"\nplan_tree "$ORIGINAL" "$PAYLOAD"',check=False)
+        self.assertNotEqual(result.returncode,0)
+        result=self.script(': > "$W/targets"\nplan_target D "$ORIGINAL" "$PAYLOAD"\n'
+                           'plan_target F "$ORIGINAL/file" "$PAYLOAD/file"',check=False)
+        self.assertNotEqual(result.returncode,0)
+
+    def test_minimal_keeps_unrelated_opex_submount_untouched(self):
+        (self.original/'bin/hw').mkdir(parents=True)
+        (self.original/'lib64/oplusex').mkdir(parents=True)
+        self.run_cmd('mount','-t','tmpfs','opex-test',str(self.original/'lib64/oplusex'))
+        self.children.append(self.original/'lib64/oplusex')
+        (self.original/'lib64/oplusex/stock.so').write_text('opex')
+        (self.payload/'bin/hw').mkdir(parents=True)
+        (self.payload/'bin/hw/dolby').write_text('new')
+        before=self.script('mount_id "$ORIGINAL/lib64/oplusex"').stdout
+        self.publish_minimal()
+        self.assertEqual(self.script('mount_id "$ORIGINAL/lib64/oplusex"').stdout,before)
+        self.assertEqual((self.original/'lib64/oplusex/stock.so').read_text(),'opex')
+
+    def test_minimal_single_file_copy_fallback_stays_private(self):
+        (self.original/'file').write_text('old');(self.payload/'file').write_text('new')
+        self.assertEqual(self.plan()[0][0],'F')
+        result=self.script('mount() { return 1; }\nstage_payload "$PAYLOAD/file" "$W/single"')
+        self.assertIn('复制兜底',result.stdout)
+        self.assertEqual((self.original/'file').read_text(),'old')
+        self.assertEqual((self.work/'single').read_text(),'new')
+
     def test_merge_preserves_nested_mounts_and_symlinks(self):
         (self.original / 'stock.so').write_text('stock')
         (self.original / 'link.so').symlink_to('stock.so')

@@ -56,25 +56,45 @@ while IFS="$tab" read -r relative mode label; do
         chmod "$mode" "$M/$relative" && chcon "$label" "$M/$relative" || fail "权限或标签设置失败：$relative"
     esac
 done < "$M/labels.tsv"
-n=0
-# Build all trees before publishing any of them.
+: > "$W/targets"
+# mount-roots are discovery boundaries, NOT publication roots. Resolve the
+# narrowest disjoint targets against this boot's actual visible directories.
 while read -r root; do
     safe_path "$root" || fail "非法目录：$root"
     case "$root" in /system/*|/system_ext/*|/vendor/*|/product/*|/odm/*) ;; *) fail "越界目录：$root";; esac
     real=$(readlink -f "$root")
     safe_path "$real" && [ -d "$real" ] || fail "目标目录不存在：$root"
     case "$real" in /system/*|/system_ext/*|/vendor/*|/product/*|/odm/*) ;; *) fail "解析后的目录越界：$real";; esac
-    [ ! -f "$W/plan" ] || ! awk -v p="$real" '$2==p {found=1} END {exit !found}' "$W/plan" || fail "重复的目录别名：$root"
-    n=$((n+1))
-    echo "准备目录：$root"
-    merge_tree "$real" "$M/files$root" "$W/tree/$n" "$real" || fail "合并失败：$root"
-    printf '%s\t%s\n' "$n" "$real" >> "$W/plan"
+    plan_tree "$real" "$M/files$root" || fail "最小范围规划失败：$root"
 done < "$M/mount-roots.txt"
+[ -s "$W/targets" ] || fail '没有可挂载的杜比文件'
+cp "$W/targets" "$R/mount-targets"
+awk -F '\t' '$1=="F" {f++} $1=="D" {d++} END {printf "最小挂载计划：%d 个单文件，%d 个必要目录\n",f,d}' "$W/targets"
+n=0
+: > "$W/plan"
+mkdir "$W/tree" || fail '无法建立暂存目录'
+# Prepare every file/tree before publishing any of them.
+while IFS="$tab" read -r kind real payload; do
+    n=$((n+1))
+    case "$kind" in
+        F) echo "准备单文件：$real"
+           stage_payload "$payload" "$W/tree/$n" || fail "文件准备失败：$real";;
+        D) echo "准备最小目录：$real"
+           merge_tree "$real" "$payload" "$W/tree/$n" "$real" || fail "合并失败：$real";;
+        *) fail '未知挂载计划类型';;
+    esac
+    printf '%s\t%s\t%s\n' "$n" "$real" "$kind" >> "$W/plan"
+done < "$W/targets"
 cp "$W/plan" "$R/mount-plan"
-while IFS="$tab" read -r n real; do
+while IFS="$tab" read -r n real kind; do
+    [ ! -L "$real" ] && [ "$(readlink -f "$real")" = "$real" ] || fail "发布前目标路径改变：$real"
     cp /proc/self/mountinfo "$W/before"
     pending="$real"
-    mount --rbind "$W/tree/$n" "$real" || fail "发布失败：$real"
+    case "$kind" in
+        F) [ -f "$real" ] && mount -o bind "$W/tree/$n" "$real" || fail "文件发布失败：$real";;
+        D) [ -d "$real" ] && mount --rbind "$W/tree/$n" "$real" || fail "目录发布失败：$real";;
+        *) fail '未知发布类型';;
+    esac
     record_publication "$real"
     pending=
     mount -o remount,bind,ro "$W/tree/$n" "$real" || fail "无法将目录层设为只读：$real"
@@ -85,4 +105,4 @@ done < "$M/mounts.tsv"
 cp "$W/published" "$R/published-mounts"
 cat /proc/sys/kernel/random/boot_id > "$R/mounted-boot"
 success=1
-echo '自挂载完成：杜比文件在 init 命名空间可见，原有子挂载保留；接下来由启动门控检查服务。'
+echo '最小范围自挂载完成：已有文件单独绑定，新增文件只合并最近已有父目录；原有子挂载保留。'

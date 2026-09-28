@@ -49,6 +49,13 @@ else
     echo '没有本次开机的自挂载成功记录。先看 self-mount 日志，不要只盯着 App。'
 fi
 tail -35 "$R/self-mount.log" 2>/dev/null
+section '实际挂载范围：F 是单文件，D 是必要的父目录'
+echo 'mount-roots.txt 只是扫描边界，不是整目录挂载清单。以下计划也可能来自失败尝试，以本次成功记录为准。'
+if [ -s "$R/mount-targets" ]; then
+    awk -F '\t' '{print $1 "  " $2} END {print "计划目标数：" NR}' "$R/mount-targets"
+else
+    echo '没有最小范围计划；可能尚未运行新版脚本，或规划阶段已失败。'
+fi
 if cmp -s "$MODDIR/.runtime/boot" /proc/sys/kernel/random/boot_id; then
     cat "$MODDIR/.runtime/status" 2>/dev/null || true
     for name in gate codec commit recover; do

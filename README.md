@@ -5,7 +5,7 @@
 
 模块署名：**科比**。推荐组合：**KSU + MOUNTIFY**。
 
-手机版 0.2.0 预览位于 [`android/`](android/README.md)：通过 root 从当前系统或手机解包 ROM
+手机版 0.2.1 预览位于 [`android/`](android/README.md)：通过 root 从当前系统或手机解包 ROM
 生成 ZIP，也可输入 `/data/DNA/DNA_01` 一类目录，备份后原位内置杜比；无需电脑参与运行。
 公开仓库不附带包含专有资产的 APK。
 
@@ -44,10 +44,25 @@ App 源码目录为 [LunarisDolby](https://github.com/Pong-Development/hardware_
 - 多设备连接时要求选择设备，不自动选第一台；模块生成不自动刷入、重启或写运行分区。
 - 模块的 `solidify/` 仅提供固化参考，工具不会自动把它写入分区。
 
+## 原生内置要解包哪些镜像
+
+需要同一套目标 ROM 的 **system、system_ext、vendor、odm、product** 五个镜像，解成文件目录，
+并保留 DNA 生成的 `config`（尤其 `*_fs_config`、`*_file_contexts`）。
+如果 ROM 只提供 `super.img`，先拆出对应逻辑分区再解包；仅提取出 `.img` 文件还不够。
+若来源是 `payload.bin`，同样先提取这五个镜像。此流程无需解包 boot、init_boot、vendor_boot、dtbo、vbmeta 或 my_*。
+
+`product` 即使没有新增杜比文件也需要：工具读取分区信息，并将其中存在的 SELinux 策略纳入编译。
+`*_fs_options`、`*_info` 保留原样；不要混用另一台设备/另一版 ROM 的打包标签和策略文件。
+本工具修改解包目录，不自动生成镜像或刷机；实际改动以该次记录为准。
+
+**原生内置与模块输出分开：** 内置使用 `Build` 写入分区文件、更新打包标签并编译目标系统策略；
+模块使用 `ModuleBuild` 输出 KSU 安装/自挂载脚本与 `sepolicy.rule`。最小范围挂载修复只作用于后者，
+不会让原生内置依赖 KSU、元模块、post-mount 或模块 initrc 注入。
+
 ## 当前模块机制
 
 本仓库对应 0.6.1 模块修复系列；内置引擎和 GUI 基础版本仍为 0.6.0。
-当前模块版本为 **`0.6.1-selfmount-preview4`**，`versionCode=608`。
+当前模块版本为 **`0.6.1-selfmount-preview5`**，`versionCode=609`；手机生成器为 0.2.1 测试版。
 电脑端三种来源、手机版两种来源共用同一模块生成器与运行脚本。
 
 已去掉安装阶段的设备指纹、SDK、架构、原文件哈希及冲突名单限制，开机不再以原 ROM 身份拦截。
@@ -55,6 +70,7 @@ App 源码目录为 [LunarisDolby](https://github.com/Pong-Development/hardware_
 模块直接生成完整杜比相关 `sepolicy.rule`，**不再调用策略编译器**；原生内置流程不变。
 
 1. 提前准备 HIDL 支持声明，使用 `files/` 独立载荷和同步 post-mount 自挂载，保留原有子挂载。
+   按开机时实际目录缩小范围：已有文件单独 bind，新增文件只合并最近已有父目录，不新增 OverlayFS。
    文件 bind 失败可限额复制到私有 tmpfs 暂存区；目录发布失败仍停止接入，不覆盖原厂分区。
 2. 文件、依赖与服务就绪检查通过后，才发布 Codec2/default9 声明并提交音频配置。
 3. 解码服务不使用 `oneshot`，提供 `default9` 接口启动映射及 `restart_period 3`。

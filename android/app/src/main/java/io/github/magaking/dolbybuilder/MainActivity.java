@@ -54,7 +54,7 @@ public final class MainActivity extends Activity {
         setContentView(scroll);
         page.addView(text("本机读取 / 模块生成 / ROM 内置",13,0xff65dec9));
         TextView title=text("杜比模块生成器",29,Color.WHITE); title.setTypeface(null,Typeface.BOLD); page.addView(title);
-        page.addView(text("科比 · LunarisDolby 来源\n预览版 0.2.0 · 自挂载 + 手机 ROM 修改",14,0xff9db2c0));
+        page.addView(text("科比 · LunarisDolby 来源\n预览版 0.2.1 · 最小范围挂载 + 手机 ROM 修改",14,0xff9db2c0));
         status=text("等待操作",17,0xff65dec9); page.addView(status);
         page.addView(text("只读当前系统，生成 ZIP 后由你保存和刷入。\n不自动安装、不重启、不常驻。请保持前台等待完成。\n读取可能包含其他模块挂载，建议在未启用杜比的系统生成。",14,0xffc4cfd7));
         page.addView(text("模块模式需支持早期 initrc 注入的 KSU，且开机早期能读取 /metadata。watchdog 目录不是必需项。部分旧版 SukiSU 不支持此接口，不可强行跳过。\n切换元模块后：卸载杜比模块 → 重启 → 重新安装。",14,0xffffc078));

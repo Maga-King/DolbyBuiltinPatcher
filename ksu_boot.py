@@ -2,11 +2,15 @@
 import re
 from core import ASSETS, PatchError, read, xml_parse, xml_bytes
 
-RUNTIME_VERSION='0.6.1-selfmount-preview4'
+RUNTIME_VERSION='0.6.1-selfmount-preview5'
 BIND_KEYS=('ro.system.build.fingerprint','ro.vendor.build.fingerprint','ro.board.platform')
 
 MODULE_README='''KSU 目标 ROM 专用模块（杜比自挂载测试版）
 
+preview5：按本次开机实际目录规划最小范围。已有文件单独 bind；新增文件只合并最近已有父目录。
+例如 bin/hw 存在时只处理 bin/hw，不再合并整个 bin，也不访问同级 horae。
+新增整个目录时仍需合并其已有父目录，不能承诺全部都是单文件挂载。
+无需叠 OverlayFS；不跳过原文件保留失败，不更换库布局或启动服务定义。
 preview3：刷入时安装同签名 App 更新，保留系统底包及数据；失败时开机完成后补试一次。
 preview4：安装后及相同 APK 跳过安装前，按系统包身份恢复杜比 CE/DE 数据目录标签。
 修复首次普通安装后晋升为系统 App、DE 目录仍保留旧标签造成设置不能写盘的问题。
@@ -117,6 +121,8 @@ def export_boot(build,folder,put,late,mounted,bindings,device_target):
     put('post-mount.sh',b'#!/system/bin/sh\nexec /system/bin/sh "${0%/*}/self-mount.sh"\n','0755')
     put('skip_mount',b'Dolby owns its files/ payload; do not mount it twice.\n')
     put('skip_mountify',b'Dolby self-mount\n')
+    # Only search boundaries: runtime walks down these payload branches to
+    # discover minimal publication targets (offline snapshots omit directories).
     roots=sorted({'/'+target.strip('/').split('/')[0]+'/'+target.strip('/').split('/')[1] for _,target,_ in mounted})
     if any(not re.fullmatch(r'/(system|system_ext|vendor|odm|product)/[A-Za-z0-9_.-]+',p) for p in roots):
         raise PatchError('模块覆盖目录无法安全表示')
@@ -131,6 +137,7 @@ def export_boot(build,folder,put,late,mounted,bindings,device_target):
                 codec_recovery=dict(init_restart=True,interface_start=True,restart_period_seconds=3,
                                     periodic_polling=False,internal_crash_root_cause_fixed=False),
                 requires=['KernelSU initrc injection','synchronous post-mount stage','init mount namespace'],
-                mounting_backend='Dolby-only recursive bind tree; preserves existing submounts',
+                mounting_backend='runtime-minimal file binds / nearest-existing-parent merges; preserves submounts',
+                publication_scope='computed at boot; child_mount_roots are search boundaries only',
                 tested_reference='self-mount preview: no Android device validation yet',
                 universal_compatibility=False)

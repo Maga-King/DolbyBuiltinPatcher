@@ -464,6 +464,15 @@ class KsuTests(unittest.TestCase):
         self.assertIn('remount,bind,ro "$src" "$dst"',engine)
         self.assertNotIn('*[!a-zA-Z0-9_./@+-]*',engine)
 
+    def test_minimal_mount_planning_precedes_all_publications(self):
+        text=(ASSETS/'ksu/boot/self-mount.sh').read_text(encoding='utf-8')
+        self.assertLess(text.index('plan_tree "$real"'),text.index('merge_tree "$real"'))
+        self.assertLess(text.index('done < "$W/targets"'),text.index('pending="$real"'))
+        self.assertIn('mount -o bind "$W/tree/$n" "$real"',text)
+        self.assertIn('mount --rbind "$W/tree/$n" "$real"',text)
+        self.assertIn('"$R/mount-targets"',text)
+        self.assertNotIn('mount -t overlay',text)
+
     def test_app_update_is_bounded_and_never_downgrades_or_changes_hiding(self):
         text=(ASSETS/'ksu/boot/install-app.sh').read_text(encoding='utf-8')
         self.assertIn('pm install -r --user 0',text)

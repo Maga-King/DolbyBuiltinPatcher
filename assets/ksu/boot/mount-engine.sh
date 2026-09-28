@@ -10,6 +10,50 @@ safe_path() {
     return 0
 }
 engine_fail() { echo "合并细节：$*" >&2; return 1; }
+plan_target() {
+    local kind="$1" target="$2" payload="$3"
+    safe_path "$target" && safe_path "$payload" || return 1
+    # Plans must be disjoint. Never hide an earlier publication under a later
+    # ancestor, including different logical roots resolving to the same place.
+    if awk -v p="$target" '$2==p || index($2,p"/")==1 || index(p,$2"/")==1 {found=1} END {exit !found}' "$W/targets"; then
+        engine_fail "计划目标重复或重叠：$target"; return 1
+    fi
+    printf '%s\t%s\t%s\n' "$kind" "$target" "$payload" >> "$W/targets"
+}
+plan_tree() {
+    local original="$1" payload="$2" entry base missing=0
+    safe_path "$original" && safe_path "$payload" || return 1
+    [ ! -L "$original" ] && [ ! -L "$payload" ] || {
+        engine_fail "修改分支碰到链接：$original"; return 1;
+    }
+    if [ -f "$payload" ]; then
+        [ -f "$original" ] || { engine_fail "单文件目标缺失或类型不匹配：$original"; return 1; }
+        plan_target F "$original" "$payload"
+        return $?
+    fi
+    [ -d "$payload" ] && [ -d "$original" ] || {
+        engine_fail "规划起点不是已有目录：$original"; return 1;
+    }
+    # Descend through existing directories. Only a missing immediate child
+    # forces merging this directory; siblings above it are never visited.
+    for entry in "$payload"/* "$payload"/.[!.]* "$payload"/..?*; do
+        [ -e "$entry" ] || [ -L "$entry" ] || continue
+        safe_path "$entry" || return 1
+        base=${entry##*/}
+        [ ! -L "$entry" ] && [ ! -L "$original/$base" ] || {
+            engine_fail "杜比资产与已有链接冲突：$original/$base"; return 1;
+        }
+        [ -e "$original/$base" ] || missing=1
+    done
+    if [ "$missing" = 1 ]; then
+        plan_target D "$original" "$payload"
+        return $?
+    fi
+    for entry in "$payload"/* "$payload"/.[!.]* "$payload"/..?*; do
+        [ -e "$entry" ] || [ -L "$entry" ] || continue
+        plan_tree "$original/${entry##*/}" "$entry" || return 1
+    done
+}
 dir_attrs() {
     local ref="$1" dest="$2" context
     chmod "$(stat -c %a "$ref")" "$dest" && chown "$(stat -c %u:%g "$ref")" "$dest" || return 1

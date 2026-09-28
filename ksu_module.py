@@ -153,7 +153,7 @@ class ModuleBuild(Build):
             if not any(line.split() and line.split()[0]==key and line.split()[-1]=='u:object_r:'+typename+':s0' for line in text.splitlines()):
                 raise PatchError('模块无法安全晚加载服务标签，需先原生适配：'+filename+' '+key)
         write(folder/'labels.tsv',''.join('\t'.join(row)+'\n' for row in labels))
-        write(folder/'module.prop',f'id={MODULE_ID}\nname=杜比全景+解码器\nversion={RUNTIME_VERSION}\nversionCode=608\nauthor=科比\ndescription=KSU 自挂载＋App 同签名更新（测试版）；切换元模块后，请卸载本模块→重启→重新安装。Action 可运行一次中文诊断。\n')
+        write(folder/'module.prop',f'id={MODULE_ID}\nname=杜比全景+解码器\nversion={RUNTIME_VERSION}\nversionCode=609\nauthor=科比\ndescription=KSU 最小范围自挂载＋App 同签名更新（测试版）；切换元模块后，请卸载本模块→重启→重新安装。Action 可运行一次中文诊断。\n')
         write(folder/'README.txt',MODULE_README)
         report=dict(version=VERSION,kind='ksu-module',applied=False,install_performed=False,rom_modified=False,
                     source=self.source_info,rom_info=self.info,module_mounts=mounted,late_mounts=late,
