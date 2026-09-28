@@ -61,7 +61,7 @@ App 源码目录为 [LunarisDolby](https://github.com/Pong-Development/hardware_
 
 ## 当前模块机制
 
-本仓库对应 0.6.1 模块修复系列；内置引擎和 GUI 基础版本仍为 0.6.0。
+电脑端发布版本为 1.0；模块运行时继续使用独立的 0.6.1 测试版编号。
 当前模块版本为 **`0.6.1-selfmount-preview5`**，`versionCode=609`；手机生成器为 0.2.1 测试版。
 电脑端三种来源、手机版两种来源共用同一模块生成器与运行脚本。
 

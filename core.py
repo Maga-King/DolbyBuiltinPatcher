@@ -18,7 +18,7 @@ import zipfile
 import xml.etree.ElementTree as ET
 from pathlib import Path, PurePosixPath
 
-VERSION = '0.6.0'
+VERSION = '1.0'
 ASSETS = Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parent)) / 'assets'
 BEGIN = '; BEGIN MIO DOLBY NATIVE v1'
 END = '; END MIO DOLBY NATIVE v1'
