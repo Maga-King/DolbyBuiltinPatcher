@@ -4,14 +4,10 @@
 [ -x /data/adb/ksu/bin/busybox ] || abort 'KernelSU busybox is required.'
 [ -d /metadata/watchdog/ksu ] || abort 'Early metadata path is unavailable; refusing a timing-race fallback.'
 P=/metadata/watchdog/ksu/mio_dolby_c17_generated
-[ ! -e "$P" ] || abort 'Existing early metadata: uninstall the previous generated module and reboot before reinstalling.'
-while IFS="$tab" read -r source target expected label; do
-    actual=$(sha256sum "$target")
-    [ "${actual%% *}" = "$expected" ] || abort "Original VINTF differs: $target"
-done < "$MODPATH/early/vintf.tsv"
+[ ! -L "$P" ] || abort 'Refusing to write early files through a symbolic link.'
 mkdir -p "$P" || abort 'Cannot stage early metadata'
 cp -a "$MODPATH/early/." "$P/" || abort 'Cannot stage early files'
-cp "$MODPATH/target.tsv" "$P/target.tsv" || abort 'Cannot stage target identity'
+cp "$MODPATH/target.tsv" "$P/target.tsv" || abort 'Cannot stage module metadata'
 set_perm_recursive "$P" 0 0 0755 0644 u:object_r:metadata_file:s0
 while IFS="$tab" read -r source target expected label; do
     set_perm "$P/$source" 0 0 0644 "$label"

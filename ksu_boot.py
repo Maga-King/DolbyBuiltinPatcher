@@ -2,12 +2,14 @@
 import re
 from core import ASSETS, PatchError, read, xml_parse, xml_bytes
 
-RUNTIME_VERSION='0.6.1-early3-initrc-cache'
+RUNTIME_VERSION='0.6.1-early4-unpinned'
 BIND_KEYS=('ro.system.build.fingerprint','ro.vendor.build.fingerprint','ro.board.platform')
 
 MODULE_README='''KSU 目标 ROM 专用模块（早期加载版）
 
 仅修改生成模块，不改输入 ROM、内置补丁合并/标签/SELinux/写回逻辑。
+模块直接导出完整杜比相关 sepolicy.rule，不运行 secilc，不替换整份策略。
+注入器可能跳过无效规则，但并不保证过滤所有运行或开机问题。
 需要支持 initrc 注入及同步 post-mount 的 KernelSU 和挂载元模块。
 不支持时拒绝安装/激活，不采用定时猜测或杀 HWS 的后备方案。
 
@@ -27,7 +29,9 @@ Enforcing 与其他组合需另行验证，成功生成 ZIP 不等于目标机�
 不替换原厂 libaudioeffecthal.qti.so，不挂载整份 CIL/precompiled_sepolicy。
 不会禁用其他应用或接管官方音效开关，保留 Lunaris App 的现有功能。
 
-不要叠加其他杜比实现。升级前卸载旧生成模块并重启，以清理早期 metadata。
+不再按设备指纹、SDK、架构或原文件哈希拒装；已移除安装冲突名单。
+安装放行不等于通刷，仍应按当前 ROM 生成，不建议叠加其他杜比实现。
+升级时更新本模块自有早期 metadata；保留必要工具、路径及操作失败处理。
 更换 ROM 后重新生成。solidify/ 仅提供固化参考，不会自动写入分区。
 检测：action.sh、.runtime/status、gate.log、codec.log、recover.log、preserve.log。
 手工修改模块 RC 或启用状态后，须通过 KSU 刷新 initrc 缓存并重启；
@@ -55,20 +59,8 @@ def validate_codec_recovery(rc):
 
 
 def target_bindings(build):
-    live=build.source_info.get('runtime_properties')
-    if live:
-        values={key:live.get(key,'') for key in BIND_KEYS}
-    else:
-        # Ported ROM vendor/build.prop can describe an old ossi build even when
-        # runtime vendor fingerprint is supplied by another partition. Offline
-        # packages use system identity + board + exact configuration/HAL hashes.
-        props=build.rom.props()
-        values={key:props.get(key,'') for key in BIND_KEYS if key!='ro.vendor.build.fingerprint'}
-    if not values.get('ro.system.build.fingerprint') or not values.get('ro.board.platform'):
-        raise PatchError('生成模块需要 system 指纹和平台标识，拒绝无目标约束的包')
-    if any('\n' in v or '\r' in v or '\t' in v for v in values.values()):
-        raise PatchError('目标属性包含非法控制字符')
-    return {k:v for k,v in values.items() if v}
+    # Stable packaging API; no install/runtime identity pinning.
+    return {}
 
 
 def export_boot(build,folder,put,late,mounted,bindings,device_target):

@@ -14,12 +14,8 @@ echo 'MIO_DOLBY readiness begin' > /dev/kmsg
 [ "$(getprop init.svc.audioserver)" != running ] || fail 'Audioserver already running'
 [ "$(getprop hwservicemanager.ready)" = true ] || fail 'HWS not ready'
 tab=$(printf '\t')
-file_digest() { sha256sum "$1" 2>/dev/null | cut -d ' ' -f 1; }
-while IFS="$tab" read -r key expected; do
-    [ "$(getprop "$key")" = "$expected" ] || fail "ROM changed: $key"
-done < "$M/target.tsv"
 while IFS="$tab" read -r source target expected; do
-    [ "$(file_digest "$target")" = "$expected" ] && [ "$(file_digest "/proc/1/root$target")" = "$expected" ] || fail "Mount missing: $target"
+    cmp -s "$M/$source" "$target" && cmp -s "$M/$source" "/proc/1/root$target" || fail "Mount missing: $target"
 done < "$M/mounts.tsv"
 while IFS="$tab" read -r source target expected label; do
     cmp -s "/metadata/watchdog/ksu/mio_dolby_c17_generated/$source" "$target" || fail "VINTF missing: $target"
@@ -30,7 +26,6 @@ chmod 0770 /data/vendor/dolby
 chcon u:object_r:vendor_data_file:s0 /data/vendor/dolby || fail 'Dolby data label'
 while IFS="$tab" read -r phase source target expected; do
     [ "$phase" = config ] || continue
-    [ "$(file_digest "$target")" = "$expected" ] || fail "Config changed: $target"
     mount -o bind "$M/$source" "$target" || fail "Config bind: $target"
 done < "$M/late.tsv"
 for spec in 'mio-dolby-hidl:/vendor/bin/hw/vendor.dolby.hardware.dms@2.0-service' 'mio-dolby-dms:/system_ext/bin/hw/vendor.dolby.dms.service'; do

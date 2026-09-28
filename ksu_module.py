@@ -68,6 +68,12 @@ class ModuleBuild(Build):
         self.source_info=source_info or {'source_kind':'local-rom','rom_modified':False}
         if inventory is not None:self.library_inventory=inventory
 
+    def compile_policy(self):
+        # Module generation needs a text delta, not a Windows/Android secilc binary.
+        # Native Build.compile_policy retains its original compilation path.
+        from ksu_policy import export_rules
+        export_rules(self)
+
     def run(self):
         try:
             self.log('KSU：只读输入；不写回 ROM，不安装模块')
@@ -143,7 +149,7 @@ class ModuleBuild(Build):
             if not any(line.split() and line.split()[0]==key and line.split()[-1]=='u:object_r:'+typename+':s0' for line in text.splitlines()):
                 raise PatchError('模块无法安全晚加载服务标签，需先原生适配：'+filename+' '+key)
         write(folder/'labels.tsv',''.join('\t'.join(row)+'\n' for row in labels))
-        write(folder/'module.prop',f'id={MODULE_ID}\nname=杜比全景+解码器\nversion={RUNTIME_VERSION}\nversionCode=603\nauthor=科比\ndescription=建议KSU+MOUNTIFY\n')
+        write(folder/'module.prop',f'id={MODULE_ID}\nname=杜比全景+解码器\nversion={RUNTIME_VERSION}\nversionCode=604\nauthor=科比\ndescription=建议KSU+MOUNTIFY\n')
         write(folder/'README.txt',MODULE_README)
         report=dict(version=VERSION,kind='ksu-module',applied=False,install_performed=False,rom_modified=False,
                     source=self.source_info,rom_info=self.info,module_mounts=mounted,late_mounts=late,

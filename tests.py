@@ -391,13 +391,20 @@ class AdbTests(unittest.TestCase):
                 patch_local('rom',build_only=True);apply.assert_not_called()
 
 class KsuTests(unittest.TestCase):
+    def test_module_policy_does_not_call_native_compiler(self):
+        from ksu_module import ModuleBuild
+        sentinel=SimpleNamespace()
+        with patch('ksu_policy.export_rules') as export,patch('policy.compile_all',side_effect=AssertionError('native compiler')):
+            ModuleBuild.compile_policy(sentinel)
+            export.assert_called_once_with(sentinel)
+
     def test_live_binding_uses_runtime_not_stale_vendor_build_prop(self):
         from ksu_boot import target_bindings
         build=SimpleNamespace(source_info={'runtime_properties':{
             'ro.system.build.fingerprint':'system-current',
             'ro.vendor.build.fingerprint':'vendor-current','ro.board.platform':'sun'}},
             rom=SimpleNamespace(props=lambda:{'ro.vendor.build.fingerprint':'stale'}))
-        self.assertEqual(target_bindings(build)['ro.vendor.build.fingerprint'],'vendor-current')
+        self.assertEqual(target_bindings(build),{})
 
     def test_offline_module_does_not_claim_vendor_property_is_runtime(self):
         from ksu_boot import target_bindings
@@ -476,7 +483,16 @@ class KsuTests(unittest.TestCase):
     def test_metamodule_description_is_not_dolby_identity(self):
         text=(ASSETS/'ksu/customize.sh').read_text(encoding='utf-8')
         self.assertNotIn('grep -qi dolby "$prop"',text)
-        self.assertIn("'^(id|name)=.*dolby'",text)
+        self.assertNotIn('Another active Dolby module',text)
+
+    def test_module_has_no_identity_or_stock_hash_rejection(self):
+        for rel in ('customize.sh','boot/install-early.sh','boot/early.sh','boot/gate.sh','boot/commit.sh'):
+            text=(ASSETS/'ksu'/rel).read_text(encoding='utf-8')
+            for forbidden in ('sha256sum','ro.system.build.fingerprint','ro.vendor.build.fingerprint',
+                              '$ARCH','$API','Original VINTF differs','ROM changed:'):
+                self.assertNotIn(forbidden,text,rel)
+        from ksu_boot import target_bindings
+        self.assertEqual(target_bindings(SimpleNamespace()),{})
 
     def test_partition_mapping_and_destination_guard(self):
         from ksu_module import module_path,check_destination

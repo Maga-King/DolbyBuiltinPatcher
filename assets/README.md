@@ -7,7 +7,7 @@
 1. `payload.zip`：应包含与 `payload.json` 匹配的组件，以 `canonical` 字段为 ZIP 内路径。
    包含 App、库与服务等私有开发材料；只能使用自己有权使用的来源，并自行确认分发权限。
    清单不是下载器，也不证明随意找一套同名库就能兼容。
-2. `native/secilc.exe`：从仓库所附的 SELinuxProject 源码与 `native/build.sh` 构建。
+2. `native/secilc.exe`：仅原生内置功能需要，生成 KSU 模块不需要。从仓库所附的 SELinuxProject 源码与 `native/build.sh` 构建。
    参考环境为 WSL/Linux + make + MinGW-w64 交叉编译工具链。
 3. ADB：将 Android Platform Tools 加到 PATH，或自行将官方文件放到 `assets/adb/`。
    ADB 模式需要已授权设备与 root；电脑 ROM 模式不需要 ADB。

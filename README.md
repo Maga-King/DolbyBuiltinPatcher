@@ -41,7 +41,11 @@ App 源码目录为 [LunarisDolby](https://github.com/Pong-Development/hardware_
 ## 当前模块机制
 
 本仓库对应 0.6.1 模块修复系列；内置引擎和 GUI 基础版本仍为 0.6.0。
-当前模块版本为 **`0.6.1-early3-initrc-cache`**，`versionCode=603`。
+当前模块版本为 **`0.6.1-early4-unpinned`**，`versionCode=604`。
+
+已去掉安装阶段的设备指纹、SDK、架构、原文件哈希及冲突名单限制，开机不再以原 ROM 身份拦截。
+必要的工具/挂载操作、启动顺序、失败回退和安全路径处理保留。去限制不等于跨机型通刷。
+模块直接生成完整杜比相关 `sepolicy.rule`，**不再调用策略编译器**；原生内置流程不变。
 
 1. 提前准备 HIDL 支持声明，保留元模块挂载前已有的子挂载。
 2. 文件、依赖与服务就绪检查通过后，才发布 Codec2/default9 声明并提交音频配置。
@@ -68,8 +72,8 @@ su -c 'sh /data/adb/modules/mio_dolby_c17_generated/initrc-cache.sh repair'
 - 推荐 KSU + MOUNTIFY 不等于所有版本、机型、SELinux 环境都兼容。
 - 当前参考实测为一加 13、C17 Android 17 DSU、KSU + Mountify 2.0.3，系统原本为 Permissive。
   **没有证明 Enforcing 或其他机型普遍可用**；工具不会主动关闭 SELinux。
-- 不叠加其他杜比实现。当前安装器要求旧生成模块先卸载并重启，清理早期 metadata 后再安装；不保证直接覆盖升级。
-- 目标专用模块绑定配置与系统身份，换 ROM 或 OTA 后应重新生成。实时读取可能读到其他模块的挂载，不保证是纯净底包。
+- 不建议叠加其他杜比实现。安装器允许更新本模块早期 metadata，不再因旧目录存在拒装。
+- 模块仍基于输入 ROM 配置生成，虽然取消了身份绑定，换 ROM 或 OTA 后仍应重新生成。实时读取可能读到其他模块的挂载，不保证是纯净底包。
 - 不替换原厂 `libaudioeffecthal.qti.so`，不向模块挂入整份 CIL/precompiled_sepolicy。
 - 已修复“解码进程退出后接口长期失联”的配置缺陷；**不宣称解码库内部崩溃已经根治**。
   持续崩溃时应停用模块、保留日志，不能把自动重启当作播放正常。
@@ -80,6 +84,7 @@ su -c 'sh /data/adb/modules/mio_dolby_c17_generated/initrc-cache.sh repair'
 ## 从源码运行
 
 本仓库不包含 `assets/payload.zip`、Windows `secilc.exe`、ADB 或第三方运行时。
+`secilc.exe` 仅原生内置功能需要，模块生成不需要它。
 **仅克隆仓库不能直接生成可用的杜比模块**；先按 [资产说明](assets/README.md) 准备匹配资产。
 
 ```powershell

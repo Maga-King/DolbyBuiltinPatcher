@@ -7,11 +7,6 @@ cmp -s "$R/ready" /proc/sys/kernel/random/boot_id || exit 0
 [ "$(getprop init.svc.vendor.audio-hal-aidl)" != running ] || exit 0
 [ "$(getprop init.svc.audioserver)" != running ] || exit 0
 tab=$(printf '\t')
-while IFS="$tab" read -r phase source target expected; do
-    [ "$phase" = audio ] || continue
-    actual=$(sha256sum "$target")
-    [ "${actual%% *}" = "$expected" ] || exit 0
-done < "$M/late.tsv"
 # Journal every intended target BEFORE binding; recovery also handles hard kills.
 while IFS="$tab" read -r phase source target expected; do
     [ "$phase" = audio ] || continue
