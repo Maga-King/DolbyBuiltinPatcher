@@ -2,11 +2,14 @@
 import re
 from core import ASSETS, PatchError, read, xml_parse, xml_bytes
 
-RUNTIME_VERSION='0.6.1-selfmount-preview5'
+RUNTIME_VERSION='0.6.1-selfmount-preview6'
 BIND_KEYS=('ro.system.build.fingerprint','ro.vendor.build.fingerprint','ro.board.platform')
 
 MODULE_README='''KSU 目标 ROM 专用模块（杜比自挂载测试版）
 
+preview6：DMS 启动前修正现有 dax_sqlite3.db 及 WAL/SHM/journal 的属主、权限和标签。
+只处理上述普通文件，拒绝符号链接及硬链接；保留数据库内容，不清预设、不重建数据库。
+修复旧备份留下 root:root/0600 导致 DMS 注册正常但参数写入返回 -19 的情况；无新增轮询。
 preview5：按本次开机实际目录规划最小范围。已有文件单独 bind；新增文件只合并最近已有父目录。
 例如 bin/hw 存在时只处理 bin/hw，不再合并整个 bin，也不访问同级 horae。
 新增整个目录时仍需合并其已有父目录，不能承诺全部都是单文件挂载。

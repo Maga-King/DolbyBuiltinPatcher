@@ -506,6 +506,21 @@ class AdbTests(unittest.TestCase):
                 patch_local('rom',build_only=True);apply.assert_not_called()
 
 class KsuTests(unittest.TestCase):
+    def test_existing_dolby_database_is_prepared_before_dms(self):
+        text=(ASSETS/'ksu/boot/gate.sh').read_text(encoding='utf-8')
+        start=text.index('# BEGIN DOLBY DATABASE ACCESS')
+        end=text.index('# END DOLBY DATABASE ACCESS')
+        block=text[start:end]
+        self.assertLess(end,text.index('setprop ctl.start'))
+        for suffix in ('', '-wal', '-shm', '-journal'):
+            self.assertIn('/data/vendor/dolby/dax_sqlite3.db'+suffix,block)
+        for required in ('chown 1013:1013 "$db"', 'chmod 0600 "$db"',
+                         'chcon u:object_r:vendor_data_file:s0 "$db"',
+                         '[ ! -L "$db" ]', 'stat -c %h', 'readlink -f'):
+            self.assertIn(required,block)
+        for forbidden in ('rm ', 'sqlite3 ', 'sleep ', 'kill', 'ctl.restart', 'chown -R', 'chmod -R'):
+            self.assertNotIn(forbidden,block)
+
     def test_selfmount_payload_does_not_compete_with_metamodule(self):
         from pathlib import Path
         import ksu_module, ksu_boot

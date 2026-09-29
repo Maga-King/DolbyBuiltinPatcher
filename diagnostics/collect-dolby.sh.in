@@ -1,0 +1,307 @@
+#!/system/bin/sh
+# Run with root: sh /sdcard/杜比诊断.sh
+# One bounded capture. No service restarts, mounts, policy edits or log clearing.
+export LC_ALL=C
+umask 077
+DB_ONLY=0
+OUTPUT=/sdcard/杜比诊断.zip
+[ "$DB_ONLY" != 1 ] || OUTPUT=/sdcard/杜比数据库诊断.zip
+BB=
+for b in /data/adb/ksu/bin/busybox /data/adb/magisk/busybox; do
+    if [ -x "$b" ]; then BB=$b; break; fi
+done
+bounded() {
+    local seconds="$1"; shift
+    if [ -n "$BB" ]; then "$BB" timeout -s TERM -k 2 "$seconds" "$@"
+    else timeout -s TERM -k 2 "$seconds" "$@"; fi
+}
+
+if [ "${1:-}" != --collect ]; then
+    exec 3>&1
+    exec >/dev/null 2>&1
+    [ "$(id -u)" = 0 ] || { echo '失败：请使用 Root 运行' >&3; exit 1; }
+    bounded 2 sh -c ':' || { echo '失败：缺少 timeout 工具' >&3; exit 1; }
+    [ -d /sdcard ] && [ -w /sdcard ] || { echo '失败：请先解锁手机' >&3; exit 1; }
+    free_kb=$(df -k /data/local/tmp | awk 'END {print $4}')
+    case "$free_kb" in ''|*[!0-9]*) echo '失败：无法确认可用空间' >&3; exit 1;; esac
+    [ "$free_kb" -ge 524288 ] || { echo '失败：至少需要 512MB 可用空间' >&3; exit 1; }
+    W=$(mktemp -d /data/local/tmp/dolby-diag.XXXXXX) || { echo '失败：无法建立临时目录' >&3; exit 1; }
+    token=${W##*/}
+    temporary="/sdcard/.$token.zip"
+    cleanup() {
+        trap - EXIT INT TERM HUP
+        if [ -f "$W/restore-log-tag" ] && [ "$(getprop log.tag.Dolby)" = DEBUG ]; then
+            setprop log.tag.Dolby "$(cat "$W/old-log-tag")"
+        fi
+        [ ! -e "$temporary" ] || rm -f "$temporary"
+        case "$W" in /data/local/tmp/dolby-diag.*)
+            if [ ! -L "$W" ] && [ "$(readlink -f "$W")" = "$W" ]; then
+                # Only our files, no bind mounts are created by this collector.
+                if ! awk -v p="$W" '$5==p || index($5,p"/")==1 {found=1} END {exit !found}' /proc/self/mountinfo; then rm -r "$W"; fi
+            fi;;
+        esac
+    }
+    trap cleanup EXIT
+    trap 'exit 1' INT TERM HUP
+    mkdir "$W/report" || exit 1
+    getprop log.tag.Dolby > "$W/old-log-tag"
+    if bounded 180 /system/bin/sh "$0" --collect "$W" > "$W/report/collector.log" 2>&1; then
+        :
+    else
+        echo 'Collection timed out or failed; partial diagnostics retained in archive.' >> "$W/report/collector.log"
+    fi
+    if [ -f "$W/restore-log-tag" ] && [ "$(getprop log.tag.Dolby)" = DEBUG ]; then
+        setprop log.tag.Dolby "$(cat "$W/old-log-tag")"
+    fi
+    base64 -d > "$W/helper.dex" <<'DOLBY_DIAG_DEX'
+@@DEX_BASE64@@
+DOLBY_DIAG_DEX
+    chmod 0444 "$W/helper.dex"
+    if CLASSPATH="$W/helper.dex" bounded 60 /system/bin/app_process /system/bin DolbyZip "$W/report" "$W/result.zip" >> "$W/zip.log" 2>&1 &&
+       bounded 30 cp "$W/result.zip" "$temporary" && bounded 20 cmp -s "$W/result.zip" "$temporary" &&
+       mv -f "$temporary" "$OUTPUT"; then
+        echo '完成' >&3
+    else
+        { cat "$W/zip.log"; tail -40 "$W/report/collector.log"; } > /sdcard/杜比诊断失败.txt
+        echo '失败：见 /sdcard/杜比诊断失败.txt' >&3
+        exit 1
+    fi
+    exit 0
+fi
+
+W=$2
+case "$W" in /data/local/tmp/dolby-diag.*) ;; *) exit 1;; esac
+[ ! -L "$W" ] && [ "$(readlink -f "$W")" = "$W" ] && [ -d "$W/report" ] || exit 1
+R="$W/report"
+M=/data/adb/modules/mio_dolby_c17_generated
+APP=org.lunaris.dolby
+total=0
+count=0
+: > "$W/seen"
+capture() {
+    local name="$1" seconds="$2"; shift 2
+    mkdir -p "$R/$(dirname "$name")"
+    # All commands and their output are bounded; no unrestricted logcat dump.
+    bounded "$seconds" "$@" 2>&1 | head -c 4194304 > "$R/$name"
+}
+copy_file() {
+    local source="$1" dest="$2" size copied
+    case "$dest" in /*|*..*|*\\*) return;; esac
+    if grep -Fqx "$dest" "$W/seen"; then return; fi
+    echo "$dest" >> "$W/seen"
+    if [ -L "$source" ]; then echo "LINK $source -> $(readlink "$source")" >> "$R/files-skipped.txt"; return; fi
+    [ -f "$source" ] || return
+    size=$(stat -c %s "$source")
+    case "$size" in ''|*[!0-9]*) return;; esac
+    if [ "$size" -gt 67108864 ] || [ "$count" -ge 650 ] || [ $((total+size)) -gt 167772160 ]; then
+        echo "LIMIT $source size=$size" >> "$R/files-skipped.txt"; return
+    fi
+    mkdir -p "$R/$(dirname "$dest")" || return
+    # Copy at most the stat size + 1 byte: growing/generated sources cannot fill disk.
+    if bounded 4 head -c $((size+1)) "$source" > "$R/$dest"; then
+        copied=$(stat -c %s "$R/$dest")
+        if [ "$copied" -ne "$size" ]; then
+            rm -f "$R/$dest"; echo "CHANGED_OR_VIRTUAL $source" >> "$R/files-skipped.txt"; return
+        fi
+        total=$((total+copied)); count=$((count+1))
+        printf '%s\t%s\t%s\n' "$dest" "$copied" "$source" >> "$R/files.tsv"
+        ls -ldZ "$source" >> "$R/file-labels.txt"
+    else
+        rm -f "$R/$dest"; echo "READ_FAILED $source" >> "$R/files-skipped.txt"
+    fi
+}
+snapshot() {
+    local when="$1"
+    capture "$when/audio_flinger.txt" 8 dumpsys media.audio_flinger
+    capture "$when/audio_policy.txt" 8 dumpsys media.audio_policy
+    capture "$when/audio.txt" 6 dumpsys audio
+}
+
+database_metadata() {
+    # No sqlite process opens the live database, and no permission is changed.
+    ls -ldnZ /data /data/vendor /data/vendor/dolby
+    stat -c '%n uid=%u gid=%g mode=%a size=%s inode=%i mtime=%Y ctime=%Z' /data /data/vendor /data/vendor/dolby
+    if [ -L /data/vendor/dolby ]; then
+        echo "SYMLINK_DIRECTORY: $(readlink /data/vendor/dolby)"
+        return
+    fi
+    ls -lanZ /data/vendor/dolby
+    for f in /data/vendor/dolby/dax_sqlite3.db /data/vendor/dolby/dax_sqlite3.db-wal /data/vendor/dolby/dax_sqlite3.db-shm /data/vendor/dolby/dax_sqlite3.db-journal /data/vendor/dolby/dax-extra.xml; do
+        if [ -e "$f" ] || [ -L "$f" ]; then
+            ls -ldnZ "$f"
+            stat -c '%n uid=%u gid=%g mode=%a size=%s inode=%i mtime=%Y ctime=%Z' "$f"
+        else
+            echo "MISSING $f"
+        fi
+    done
+}
+collect_database() {
+    local f name pid t i
+    mkdir -p "$R/database"
+    printf 'Raw live copies, NOT a transactional SQLite backup. Compare metadata-before/after; unchanged metadata does not prove consistency. Never restore these over a running service.\nNo live SQLite queries, chmod/chown/chcon, service restarts, ptrace or writes to Dolby data.\n' > "$R/database/README.txt"
+    database_metadata > "$R/database/metadata-before.txt" 2>&1
+    if [ -d /data/vendor/dolby ] && [ ! -L /data/vendor/dolby ]; then
+        for f in /data/vendor/dolby/dax_sqlite3.db /data/vendor/dolby/dax_sqlite3.db-wal /data/vendor/dolby/dax_sqlite3.db-shm /data/vendor/dolby/dax_sqlite3.db-journal /data/vendor/dolby/dax-extra.xml; do
+            copy_file "$f" "database/files/${f##*/}"
+        done
+    fi
+    database_metadata > "$R/database/metadata-after.txt" 2>&1
+    capture database/mounts.txt 3 sh -c 'cat /proc/self/mountinfo | grep -E " /data(/| )|dolby"'
+    for name in vendor.dolby.hardware.dms@2.0-service vendor.dolby.dms.service; do
+        for pid in $(pidof "$name"); do
+            case "$pid" in ''|*[!0-9]*) continue;; esac
+            echo "$pid $name" >> "$R/database/processes.txt"
+            capture "database/process/$pid/status.txt" 2 cat "/proc/$pid/status"
+            capture "database/process/$pid/selinux.txt" 2 cat "/proc/$pid/attr/current"
+            capture "database/process/$pid/maps.txt" 3 cat "/proc/$pid/maps"
+            capture "database/process/$pid/fd.txt" 3 ls -lan "/proc/$pid/fd"
+            capture "database/process/$pid/data-view.txt" 3 ls -lanZ "/proc/$pid/root/data/vendor/dolby"
+            capture "database/process/$pid/threads.txt" 4 sh -c '
+                i=0
+                for t in /proc/"$1"/task/*; do
+                    [ -d "$t" ] || continue
+                    i=$((i+1)); [ "$i" -le 32 ] || break
+                    echo "THREAD ${t##*/}"
+                    cat "$t/comm" "$t/wchan" "$t/stack" 2>&1
+                    echo
+                done' sh "$pid"
+        done
+    done
+    capture database/recent-dms.txt 8 logcat -b all -d -v threadtime -s 'DatabaseHelper:V' 'DsContextManager:V' 'DlbDatabaseProvider:V' 'DolbyManagerService:V' 'DolbyManagerSvc:V' 'DMSService:V' 'DsManager:V' 'TuningFileParser:V' 'AHAL_DolbyDapEffect:V' 'DlbDapEffectContext:V' 'DlbEffectContext:V' 'libc:F' '*:S'
+    for f in gate.sh service.sh post-fs-data.sh sepolicy.rule module.prop; do
+        copy_file "$M/$f" "module/$f"
+    done
+    return 0
+}
+
+printf 'Dolby one-shot diagnostics v2\n' > "$R/README.txt"
+printf 'Read-only current ROM view, not a clean OTA baseline. Existing module overlays may be included.\nNo audio/service restarts or SELinux changes. Only log.tag.Dolby is temporarily DEBUG.\nSome files/commands may be unavailable; see skipped files and collector.log.\nLogs can contain device, app and music information. Review before sharing.\n' >> "$R/README.txt"
+{
+    date; id; uname -a; getenforce; cat /proc/uptime
+    for key in ro.product.model ro.product.device ro.build.version.sdk ro.build.version.release ro.build.display.id ro.board.platform ro.vendor.build.version.sdk sys.boot_completed hwservicemanager.ready hwservicemanager.disabled; do
+        printf '%s=%s\n' "$key" "$(getprop "$key")"
+    done
+    getprop | grep -Ei 'init.svc.*(dolby|dms|audio|hwservicemanager)|audio.*(offload|effect)|ro.gsid.image_running'
+    df -k /data /sdcard
+    echo "self=$(readlink /proc/self/ns/mnt) init=$(readlink /proc/1/ns/mnt)"
+} > "$R/environment.txt" 2>&1
+if [ "$DB_ONLY" = 1 ]; then
+    collect_database
+    capture services.txt 5 service list
+    capture hidl.txt 5 lshal
+    printf 'capture_complete=true\nmode=database\nfiles=%s\nfile_bytes=%s\n' "$count" "$total" > "$R/completion.txt"
+    exit 0
+fi
+capture logs/before.txt 5 logcat -b all -d -v threadtime -t 5000
+touch "$W/restore-log-tag"
+setprop log.tag.Dolby DEBUG
+{
+    bounded 22 logcat -b all -v threadtime -T 1 2>&1 | head -c 8388608 > "$R/logs/switch-preset-22s.txt"
+} &
+live_pid=$!
+snapshot before
+wait "$live_pid" || true
+snapshot after
+if [ "$(getprop log.tag.Dolby)" = DEBUG ]; then setprop log.tag.Dolby "$(cat "$W/old-log-tag")"; fi
+capture logs/after.txt 5 logcat -b all -d -v threadtime -t 5000
+capture logs/kernel.txt 4 dmesg
+collect_database
+grep -Eai 'Dolby|DMS|DAP|swdap|AudioEffect|EffectHal|EffectFactory|EqualizerViewModel|preset|setParameter|avc: denied|CANNOT LINK|FATAL EXCEPTION' "$R"/logs/*.txt | tail -n 2000 > "$R/relevant-errors.txt"
+capture services.txt 5 service list
+capture hidl.txt 5 lshal
+capture processes.txt 4 ps -AZ
+capture package.txt 5 dumpsys package "$APP"
+capture app-services.txt 5 dumpsys activity services "$APP"
+capture init-mountinfo.txt 3 cat /proc/1/mountinfo
+capture self-mountinfo.txt 3 cat /proc/self/mountinfo
+
+# Module identities/configuration only. Never execute another module's scripts.
+for mod in /data/adb/modules/*; do
+    [ -d "$mod" ] || continue
+    copy_file "$mod/module.prop" "modules/${mod##*/}/module.prop"
+    for flag in disable remove skip_mount skip_mountify; do [ ! -e "$mod/$flag" ] || echo "$mod/$flag" >> "$R/module-flags.txt"; done
+done
+for file in module.prop module-report.json mounts.tsv late.tsv labels.tsv mount-roots.txt mode preinit-path; do
+    copy_file "$M/$file" "module/$file"
+done
+for file in "$M"/.runtime/* "$M"/initrc/*.rc "$M"/early/*.tsv; do
+    [ -f "$file" ] || continue
+    copy_file "$file" "module/${file#"$M/"}"
+done
+for f in /data/adb/mountify/config.sh /data/adb/magic_mount/config.toml /data/adb/hybrid-mount/config.toml; do copy_file "$f" "mount-config/${f#/data/adb/}"; done
+
+# Actual late audio XML is especially important: the basic Action previously
+# checked only the 82 payload entries, not whether late XML remained visible.
+for table in mounts.tsv late.tsv; do
+    [ -f "$M/$table" ] || continue
+    while read -r a b c d; do
+        if [ "$table" = mounts.tsv ]; then source=$a; target=$b; else source=$b; target=$c; fi
+        case "$target" in /system/*|/system_ext/*|/vendor/*|/odm/*|/product/*) ;; *) continue;; esac
+        case "$target" in *..*|*\\*) continue;; esac
+        case "$source" in files/*|late/*) ;; *) continue;; esac
+        case "$source" in *..*|*\\*) continue;; esac
+        if bounded 3 cmp -s "$M/$source" "/proc/1/root$target"; then result=MATCH; else result=MISMATCH; fi
+        printf '%s\t%s\t%s\n' "$result" "$source" "$target" >> "$R/module-live-compare.tsv"
+        case "$target" in *.apk) continue;; esac
+        copy_file "$target" "rom$target"
+        case "$source" in late/*)
+            copy_file "$M/$source" "module/$source"
+            copy_file "/proc/1/root$target" "init-view$target";;
+        esac
+    done < "$M/$table"
+done
+
+# Find ROM audio configuration across every SKU, VINTF and service declaration.
+for part in system system_ext vendor odm product; do
+    for sub in etc/vintf etc/audio etc/dolby; do
+        [ -d "/$part/$sub" ] || continue
+        bounded 4 find "/$part/$sub" -type f >> "$W/candidates"
+    done
+    if [ -d "/$part/etc" ]; then
+        bounded 5 find "/$part/etc" -type f | grep -Ei '/(audio[^/]*\.(xml|conf)|media_codecs[^/]*\.xml|dax[^/]*\.(xml|json)|[^/]*(dolby|dms|audio|hwservicemanager)[^/]*\.rc)$' >> "$W/candidates"
+    fi
+    for f in "/$part"/etc/selinux/*file_contexts "/$part"/etc/selinux/*service_contexts "/$part"/etc/selinux/*sepolicy*.cil "/$part"/etc/selinux/plat_sepolicy_vers.txt; do
+        [ -f "$f" ] && echo "$f" >> "$W/candidates"
+    done
+done
+if [ -f "$W/candidates" ]; then
+    sort -u "$W/candidates" > "$W/ordered"
+    while IFS= read -r f; do copy_file "$f" "rom$f"; done < "$W/ordered"
+fi
+for dir in /system_ext/lib64/dolbyaidl /vendor/lib64/dolbyaidl /vendor/lib64/soundfx /system_ext/bin/hw /vendor/bin/hw; do
+    [ -d "$dir" ] || continue
+    ls -laZ "$dir" >> "$R/library-inventory.txt" 2>&1
+    for f in "$dir"/*; do
+        case "$f" in */dolbyaidl/*|*dolby*|*dms*|*swdap*|*dlbd*|*dapparam*) copy_file "$f" "rom$f";; esac
+    done
+done
+for f in /vendor/lib64/hw/libaudioeffecthal.qti.so /vendor/lib64/libaudioeffecthal.qti.so /vendor/bin/hw/audiohalservice.qti; do copy_file "$f" "rom$f"; done
+
+# Only Dolby preferences; never collect unrelated application databases/accounts.
+for base in /data/user_de/0/$APP /data/user/0/$APP; do
+    ls -ldZ "$base" "$base/shared_prefs" >> "$R/app-data-labels.txt" 2>&1
+    for f in "$base"/shared_prefs/*.xml; do copy_file "$f" "app-data/${f#/data/}"; done
+done
+capture apk-path.txt 4 pm path "$APP"
+apk=$(sed -n 's/^package://p' "$R/apk-path.txt" | head -n 1 | tr -d '\r')
+case "$apk" in /data/app/*.apk|/system_ext/*.apk|/system/*.apk|/product/*.apk) copy_file "$apk" app/LunarisDolby-active.apk;; esac
+for name in "$APP" audioserver audiohalservice.qti dolbycodecservice vendor.dolby.dms.service vendor.dolby.hardware.dms@2.0-service; do
+    for pid in $(pidof "$name"); do
+        case "$pid" in ''|*[!0-9]*) continue;; esac
+        capture "process/$pid/status.txt" 2 cat "/proc/$pid/status"
+        capture "process/$pid/maps.txt" 3 cat "/proc/$pid/maps"
+        capture "process/$pid/mountinfo.txt" 3 cat "/proc/$pid/mountinfo"
+        echo "$pid $name $(readlink /proc/$pid/ns/mnt)" >> "$R/process-identities.txt"
+        if [ "$name" = audioserver ] || [ "$name" = audiohalservice.qti ]; then
+            [ -f "$M/late.tsv" ] || continue
+            while read -r phase source target unused; do
+                [ "$phase" = audio ] || continue
+                case "$target" in /vendor/*|/odm/*|/system/*|/system_ext/*) ;; *) continue;; esac
+                case "$target" in *..*|*\\*) continue;; esac
+                copy_file "/proc/$pid/root$target" "process/$pid/audio-config$target"
+            done < "$M/late.tsv"
+        fi
+    done
+done
+printf 'capture_complete=true\nfiles=%s\nfile_bytes=%s\n' "$count" "$total" > "$R/completion.txt"
+exit 0
