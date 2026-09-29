@@ -34,7 +34,7 @@ for module in /data/adb/modules/*; do
     grep -E '^(id|name|version|metamodule)=' "$module/module.prop"
     for flag in disable remove skip_mount skip_mountify; do [ ! -e "$module/$flag" ] || echo "标记：$flag"; done
 done
-echo '本模块的 skip_mount/skip_mountify 是防止重复挂载的正常标记；实际看下面的自挂载记录。'
+echo '本测试包正常情况下没有 skip_mount/skip_mountify；若存在，可能是前置保护失败留下的拒绝挂载标记。'
 echo '切换元模块后：卸载本模块 → 重启 → 重新安装。不要同时启用多套元模块。'
 section '常见挂载器设置（只读文本，不执行配置脚本）'
 for file in /data/adb/mountify/config.sh /data/adb/hybrid-mount/config.toml /data/adb/magic_mount/config.toml; do
@@ -43,18 +43,18 @@ done
 section '下次开机的 initrc 缓存（不是本次已经加载的证明）'
 /system/bin/sh "$MODDIR/initrc-cache.sh" check || true
 section '本次开机的挂载和启动记录'
-if cmp -s "$R/mounted-boot" /proc/sys/kernel/random/boot_id; then
-    echo '自挂载成功记录属于本次开机。'
+if cmp -s "$R/repair-ok" /proc/sys/kernel/random/boot_id; then
+    echo '元模块后补挂成功记录属于本次开机。'
 else
-    echo '没有本次开机的自挂载成功记录。先看 self-mount 日志，不要只盯着 App。'
+    echo '没有本次开机的元模块后补挂成功记录。先看 preserve.log 和 repair.log，不要只盯着 App。'
 fi
-tail -35 "$R/self-mount.log" 2>/dev/null
+tail -35 "$R/repair.log" 2>/dev/null
 section '实际挂载范围：F 是单文件，D 是必要的父目录'
-echo 'mount-roots.txt 只是扫描边界，不是整目录挂载清单。以下计划也可能来自失败尝试，以本次成功记录为准。'
-if [ -s "$R/mount-targets" ]; then
-    awk -F '\t' '{print $1 "  " $2} END {print "计划目标数：" NR}' "$R/mount-targets"
+echo '这里只列本模块的补挂，不包含元模块自己的挂载范围。以本次成功记录为准。'
+if [ -s "$R/repair-plan.tsv" ]; then
+    awk -F '\t' '{print $1 "  " $2} END {print "计划目标数：" NR}' "$R/repair-plan.tsv"
 else
-    echo '没有最小范围计划；可能尚未运行新版脚本，或规划阶段已失败。'
+    echo '没有补挂计划：可能元模块已全部挂好，也可能检查失败；请结合 repair.log。'
 fi
 if cmp -s "$MODDIR/.runtime/boot" /proc/sys/kernel/random/boot_id; then
     cat "$MODDIR/.runtime/status" 2>/dev/null || true
@@ -65,6 +65,11 @@ if cmp -s "$MODDIR/.runtime/boot" /proc/sys/kernel/random/boot_id; then
 else
     echo '没有本次开机的启动门控记录；旧日志不能证明杜比已启动。'
 fi
+section 'GitHub 原版元模块流程＋缺失项补挂'
+echo "本包单份 system/ 载荷，需要元模块；未使用 files/ 双份载荷或 self-mount.sh。"
+echo "原版子挂载保存/恢复："; tail -50 "$MODDIR/preserve.log" 2>/dev/null
+echo "元模块后补挂："; tail -60 "$R/repair.log" 2>/dev/null
+echo "仅修复以下项："; cat "$R/repair-pending.tsv" 2>/dev/null
 section '服务：running 仅代表进程状态，不等于歌曲正用杜比解码'
 for name in mio-dolby-hidl mio-dolby-dms mio-dolby-codec; do
     echo "$name: $(getprop init.svc.$name)"
@@ -134,7 +139,7 @@ section '最近相关错误（有限截取，不持续抓取）'
 bounded logcat -b all -d -t 1600 | grep -E -i 'org.lunaris.dolby|dolbycodecservice|mio-dolby|vendor.dolby|Failed to open APK|ClassLoader.*unknown path|avc: denied.*(dolby|dms|swdap)' | tail -n 90
 section '怎么看结果'
 echo '1. 源 APK 都没有/为零：先重新生成和安装，不必先折腾音效参数。'
-echo '2. 源文件正常、init 看不到：查自挂载日志和元模块组合。'
+echo '2. 源文件正常、init 看不到：查元模块后补挂日志和元模块组合。'
 echo '3. init 看得到、App 看不到：查应用级卸载模块或 VFS 隔离。'
 echo '4. 文件都在但 App 未注册/崩溃：查包扫描、Android 版本要求、SELinux 和上面的错误。'
 echo '5. App 能开但无法调参/播放：继续看 HIDL、AIDL、Codec2 和实际播放日志。'

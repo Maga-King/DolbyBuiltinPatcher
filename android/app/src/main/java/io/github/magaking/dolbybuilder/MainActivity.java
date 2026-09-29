@@ -54,10 +54,10 @@ public final class MainActivity extends Activity {
         setContentView(scroll);
         page.addView(text("本机读取 / 模块生成 / ROM 内置",13,0xff65dec9));
         TextView title=text("杜比模块生成器",29,Color.WHITE); title.setTypeface(null,Typeface.BOLD); page.addView(title);
-        page.addView(text("科比 · LunarisDolby 来源\n预览版 0.2.2 · 原厂标签保留修复",14,0xff9db2c0));
+        page.addView(text("科比 · LunarisDolby 来源\n预览版 0.2.4 · 原版元模块＋缺失项补挂",14,0xff9db2c0));
         status=text("等待操作",17,0xff65dec9); page.addView(status);
         page.addView(text("只读当前系统，生成 ZIP 后由你保存和刷入。\n不自动安装、不重启、不常驻。请保持前台等待完成。\n读取可能包含其他模块挂载，建议在未启用杜比的系统生成。",14,0xffc4cfd7));
-        page.addView(text("模块模式需支持早期 initrc 注入的 KSU，且开机早期能读取 /metadata。watchdog 目录不是必需项。部分旧版 SukiSU 不支持此接口，不可强行跳过。\n切换元模块后：卸载杜比模块 → 重启 → 重新安装。",14,0xffffc078));
+        page.addView(text("本版生成模块需要元模块，建议 KSU＋MOUNTIFY。普通文件由元模块挂载，本模块只补缺失或不符项；没有有效元模块挂载时不整包接管。\n需支持早期 initrc 注入的 KSU，且开机早期能读取 /metadata；watchdog 目录不是必需项。\n切换元模块后：卸载杜比模块 → 重启 → 重新安装。保留防卡开机措施，本版尚未通过目标机开机验证。ROM 内置逻辑未改。",14,0xffffc078));
         page.addView(text(COMPAT_WARNING,14,0xffffc078));
         root=button("① 检查环境并授权 ROOT",page);
         generate=button("② 读取系统并生成模块",page);

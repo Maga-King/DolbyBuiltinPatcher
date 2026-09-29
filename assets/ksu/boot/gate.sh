@@ -12,14 +12,14 @@ echo 'MIO_DOLBY readiness begin' > /dev/kmsg
 . "$M/runtime-paths.sh" || fail '缺少运行路径脚本'
 P=$(dolby_early_path)
 [ ! -f "$M/disable" ] && [ ! -f "$M/remove" ] || fail 'Disabled'
-cmp -s "$R/mounted-boot" /proc/sys/kernel/random/boot_id || fail '本次开机自挂载未完成，保留原厂音频'
+cmp -s "$R/repair-ok" /proc/sys/kernel/random/boot_id || fail '元模块/补挂检查未完成，保留原厂音频'
 [ "$(getprop init.svc.vendor.audio-hal-aidl)" != running ] || fail 'Audio already running'
 [ "$(getprop init.svc.audioserver)" != running ] || fail 'Audioserver already running'
 [ "$(getprop hwservicemanager.ready)" = true ] || fail 'HWS not ready'
 tab=$(printf '\t')
-while IFS="$tab" read -r source target expected; do
-    cmp -s "$M/$source" "$target" && cmp -s "$M/$source" "/proc/1/root$target" || fail "Mount missing: $target"
-done < "$M/mounts.tsv"
+while IFS="$tab" read -r source target; do
+    cmp -s "$source" "$target" && cmp -s "$source" "/proc/1/root$target" || fail "Mount missing: $target"
+done < "$R/repair-sources.tsv"
 while IFS="$tab" read -r source target expected label; do
     cmp -s "$P/$source" "$target" || fail "VINTF missing: $target"
 done < "$M/early/vintf.tsv"

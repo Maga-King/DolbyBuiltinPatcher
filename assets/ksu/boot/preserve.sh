@@ -6,9 +6,11 @@ BB=/data/adb/ksu/bin/busybox
 case "$1" in
 save)
     # Failure closes metamodule mounting; do not leave a partial snapshot active.
-    trap 'touch "$M/skip_mount"' 0
+    trap 'touch "$M/skip_mount" "$M/skip_mountify"' 0
     [ ! -e "$S" ] || exit 1
     mkdir -m 0700 "$S"
+    $BB mount -t tmpfs -o mode=0700,nodev KSU "$S"
+    $BB mount --make-rprivate "$S"
     exec > "$M/preserve.log" 2>&1
     echo "SAVE $(cat /proc/uptime)"
     cat /proc/sys/kernel/random/boot_id > "$S/boot"
@@ -27,6 +29,7 @@ save)
         saved="$S/$n"
         if [ -d "$target" ]; then mkdir "$saved"; else touch "$saved"; fi
         $BB mount -o bind "$target" "$saved"
+        $BB mount --make-rprivate "$saved"
         printf '%s\t%s\n' "$saved" "$target" >> "$S/journal"
         echo "SAVED $target"
     done < "$S/sorted"
@@ -42,17 +45,13 @@ restore)
     while IFS="$tab" read -r saved target; do
         if ! $BB mount -o bind "$saved" "$target"; then
             echo "RESTORE_FAILED $target"
-            # Uncover the pre-metamodule trees. Only pop roots with a new mount ID.
-            while read -r root; do
-                before=$(awk -v p="$root" '$5==p {id=$1} END {print id}' "$S/before")
-                after=$(awk -v p="$root" '$5==p {id=$1} END {print id}' /proc/self/mountinfo)
-                if [ -n "$after" ] && [ "$before" != "$after" ]; then umount "$root" || true; fi
-            done < "$M/mount-roots.txt"
+            echo "不卸载元模块共享父目录；恢复失败需保留日志并禁用杜比。"
             touch "$M/disable"
             exit 7
         fi
         echo "RESTORED $target"
     done < "$S/journal"
+    touch "$S/restored"
     echo "DONE $(cat /proc/uptime)"
     ;;
 *) exit 8;;

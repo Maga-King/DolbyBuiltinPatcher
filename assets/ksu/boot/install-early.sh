@@ -16,10 +16,10 @@ set_perm_recursive "$P" 0 0 0755 0644 u:object_r:metadata_file:s0
 while IFS="$tab" read -r source target expected label; do
     set_perm "$P/$source" 0 0 0644 "$label"
 done < "$P/vintf.tsv"
-ui_print '杜比全景+解码器：自挂载测试版'
-ui_print '杜比文件由本模块挂载，不占用元模块名额；不强杀 HWS，不重启音频服务。'
+ui_print '杜比全景+解码器：原版元模块＋缺失项补挂测试版'
+ui_print '普通文件需要元模块先挂载，本模块仅补未生效项；不强杀 HWS，不重启音频服务。'
 ui_print '切换元模块后，请卸载本模块 → 重启 → 重新安装。'
-ui_print 'skip_mount 是有意保留的：防止其他挂载器重复处理，并非安装失败。'
+ui_print '正常情况下不设置 skip_mount；元模块未生效时不会整包自挂载接管。'
 ui_print '重启后可点 Action 运行一次中文诊断；不会启动常驻检测。'
 ui_print '正在安装杜比 App 更新：不清数据、不降级、不修改隐藏设置。'
 if /system/bin/sh "$MODPATH/install-app.sh"; then

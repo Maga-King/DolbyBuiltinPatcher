@@ -1,3 +1,4 @@
+# Shared module backend: original e09bb23 scheme; stable 87b4cbb fixes retained.
 """Read-only inputs -> target-specific KernelSU module. Never installs a module."""
 import copy
 import json
@@ -125,7 +126,7 @@ class ModuleBuild(Build):
                 continue
             if 'libaudioeffecthal.qti.so' in name:raise PatchError('禁止将原厂音效 HAL 替换加入模块')
             # No top-level system directory: metamodules must not scan this payload.
-            out='files/'+name;path=put(out,data,row['mode'],label)
+            out=module_path(name);path=put(out,data,row['mode'],label)
             mounted.append((out,'/'+name,sha(path)))
         name,data=device_manifest(self)
         private(name,data,'u:object_r:vendor_configs_file:s0','vintf')
@@ -153,11 +154,11 @@ class ModuleBuild(Build):
             if not any(line.split() and line.split()[0]==key and line.split()[-1]=='u:object_r:'+typename+':s0' for line in text.splitlines()):
                 raise PatchError('模块无法安全晚加载服务标签，需先原生适配：'+filename+' '+key)
         write(folder/'labels.tsv',''.join('\t'.join(row)+'\n' for row in labels))
-        write(folder/'module.prop',f'id={MODULE_ID}\nname=杜比全景+解码器\nversion={RUNTIME_VERSION}\nversionCode=609\nauthor=科比\ndescription=KSU 最小范围自挂载＋App 同签名更新（测试版）；切换元模块后，请卸载本模块→重启→重新安装。Action 可运行一次中文诊断。\n')
+        write(folder/'module.prop',f'id={MODULE_ID}\nname=杜比全景+解码器\nversion={RUNTIME_VERSION}\nversionCode=613\nauthor=科比\ndescription=建议 KSU＋MOUNTIFY；原版元模块＋缺失项补挂（测试版）；切换元模块后，请卸载本模块→重启→重新安装。Action 可运行一次中文诊断。\n')
         write(folder/'README.txt',MODULE_README)
         report=dict(version=VERSION,kind='ksu-module',applied=False,install_performed=False,rom_modified=False,
                     source=self.source_info,rom_info=self.info,module_mounts=mounted,late_mounts=late,
-                    excluded_from_mount=excluded,boot_tested=False,limitations=['target-specific','self-mount needs device testing','bounded HIDL startup may fail safely'])
+                    excluded_from_mount=excluded,boot_tested=False,limitations=['target-specific','metamodule and repair require device testing','bounded HIDL startup may fail safely'])
         report['boot_runtime']=boot_report
         save_json(self.session/'module-report.json',report)
         put('module-report.json',(self.session/'module-report.json').read_bytes())

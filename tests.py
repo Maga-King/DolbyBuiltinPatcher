@@ -521,41 +521,44 @@ class KsuTests(unittest.TestCase):
         for forbidden in ('rm ', 'sqlite3 ', 'sleep ', 'kill', 'ctl.restart', 'chown -R', 'chmod -R'):
             self.assertNotIn(forbidden,block)
 
-    def test_selfmount_payload_does_not_compete_with_metamodule(self):
+    def test_standard_payload_is_owned_by_metamodule_with_bounded_repair(self):
         from pathlib import Path
         import ksu_module, ksu_boot
         module=Path(ksu_module.__file__).read_text(encoding='utf-8')
         boot=Path(ksu_boot.__file__).read_text(encoding='utf-8')
-        self.assertIn("out='files/'+name",module)
-        self.assertIn("put('skip_mount'",boot)
-        self.assertIn("put('skip_mountify'",boot)
-        self.assertNotIn("put('post-fs-data.sh'",boot)
+        self.assertIn('out=module_path(name)',module)
+        self.assertNotIn("out='files/'+name",module)
+        self.assertNotIn("put('skip_mount'",boot)
+        self.assertNotIn("put('skip_mountify'",boot)
+        self.assertIn("'post-fs-data.sh','post-mount.sh'",boot)
+        self.assertIn("'preserve.sh','repair-mounts.sh'",boot)
         self.assertIn('卸载本模块→重启→重新安装',module)
         self.assertNotIn("'preserve.sh','service.sh'",boot)
 
-    def test_selfmount_is_bounded_and_does_not_control_services(self):
-        text=(ASSETS/'ksu/boot/self-mount.sh').read_text(encoding='utf-8')
+    def test_repair_is_bounded_and_does_not_control_services(self):
+        text=(ASSETS/'ksu/boot/repair-mounts.sh').read_text(encoding='utf-8')
         for forbidden in ('ctl.start','ctl.stop','ctl.restart','killall','sleep ','rm -rf'):
             self.assertNotIn(forbidden,text)
-        self.assertIn('timeout -s TERM -k 3 25',text)
+        self.assertIn('timeout -s TERM -k 2 20',text)
         self.assertIn('mount() { "$BB" mount "$@"; }',text)
         self.assertIn('umount() { "$BB" umount "$@"; }',text)
         self.assertIn('/proc/1/ns/mnt',text)
-        self.assertIn('mounted-boot',text)
+        self.assertIn('repair-ok',text)
+        self.assertIn('[ "$matched" -gt 0 ]',text)
         self.assertIn('rollback_publications',text)
         self.assertIn('runtime-paths.sh',(ASSETS/'ksu/boot/gate.sh').read_text(encoding='utf-8'))
-        self.assertIn('remount,bind,ro "$W/tree/$n" "$real"',text)
+        self.assertIn('remount,bind,ro "$payload" "$target"',text)
         engine=(ASSETS/'ksu/boot/mount-engine.sh').read_text(encoding='utf-8')
         self.assertIn('remount,bind,ro "$src" "$dst"',engine)
         self.assertNotIn('*[!a-zA-Z0-9_./@+-]*',engine)
 
     def test_minimal_mount_planning_precedes_all_publications(self):
-        text=(ASSETS/'ksu/boot/self-mount.sh').read_text(encoding='utf-8')
-        self.assertLess(text.index('plan_tree "$real"'),text.index('merge_tree "$real"'))
-        self.assertLess(text.index('done < "$W/targets"'),text.index('pending="$real"'))
-        self.assertIn('mount -o bind "$W/tree/$n" "$real"',text)
-        self.assertIn('mount --rbind "$W/tree/$n" "$real"',text)
-        self.assertIn('"$R/mount-targets"',text)
+        text=(ASSETS/'ksu/boot/repair-mounts.sh').read_text(encoding='utf-8')
+        self.assertLess(text.index('plan_tree "$root"'),text.index('merge_tree "$target"'))
+        self.assertLess(text.index('done < "$W/targets"'),text.index('pending="$target"'))
+        self.assertIn('mount -o bind "$payload" "$target"',text)
+        self.assertIn('mount --rbind "$payload" "$target"',text)
+        self.assertIn('"$R/repair-plan.tsv"',text)
         self.assertNotIn('mount -t overlay',text)
 
     def test_app_update_is_bounded_and_never_downgrades_or_changes_hiding(self):
@@ -744,7 +747,9 @@ class KsuTests(unittest.TestCase):
         self.assertIn('setprop ctl.start hwservicemanager',text)
         self.assertLess(text.index('getprop sys.boot_completed'),text.index('mount -o bind'))
         self.assertIn('no polling remains',text)
-        self.assertFalse((ASSETS/'ksu/post-fs-data.sh').exists())
+        stage=(ASSETS/'ksu/post-fs-data.sh').read_text(encoding='utf-8')
+        self.assertIn('preserve.sh',stage)
+        self.assertNotIn('ctl.restart',stage)
         rc=(ASSETS/'ksu/init-services.rc').read_text(encoding='utf-8')
         self.assertEqual(rc.count('    disabled'),3)
         self.assertEqual(rc.count('    oneshot'),2)

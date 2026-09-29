@@ -1,6 +1,6 @@
 #!/system/bin/sh
 # Dolby-only merge engine. No foreign module discovery, VFS controls or service control.
-# Sourced by self-mount.sh; also exercised in an isolated Linux mount namespace.
+# Sourced by repair-mounts.sh; also exercised in an isolated Linux mount namespace.
 mount_id() { awk -v p="$1" '$5==p {id=$1} END {print id}' /proc/self/mountinfo; }
 safe_path() {
     # These are quoted filesystem names, NOT shell programs. '[' is a legitimate
@@ -10,6 +10,18 @@ safe_path() {
     return 0
 }
 engine_fail() { echo "合并细节：$*" >&2; return 1; }
+payload_matches() {
+    local src="$1" dst="$2" source_context target_context
+    [ -f "$src" ] && [ ! -L "$src" ] && [ -f "$dst" ] && [ ! -L "$dst" ] || return 1
+    cmp -s "$src" "$dst" || return 1
+    [ "$(stat -c %u:%g:%a "$src")" = "$(stat -c %u:%g:%a "$dst")" ] || return 1
+    if [ "$DOLBY_SELINUX" = 1 ]; then
+        source_context=$(ls -Zd "$src" | awk '{print $1}')
+        target_context=$(ls -Zd "$dst" | awk '{print $1}')
+        case "$source_context" in u:object_r:*:s0*) ;; *) return 1;; esac
+        [ "$source_context" = "$target_context" ] || return 1
+    fi
+}
 plan_target() {
     local kind="$1" target="$2" payload="$3"
     safe_path "$target" && safe_path "$payload" || return 1
@@ -28,6 +40,10 @@ plan_tree() {
     }
     if [ -f "$payload" ]; then
         [ -f "$original" ] || { engine_fail "单文件目标缺失或类型不匹配：$original"; return 1; }
+        if payload_matches "$payload" "$original"; then
+            echo "已就位，不重复挂载：$original"
+            return 0
+        fi
         plan_target F "$original" "$payload"
         return $?
     fi

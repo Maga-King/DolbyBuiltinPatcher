@@ -5,7 +5,7 @@
 
 模块署名：**科比**。推荐组合：**KSU + MOUNTIFY**。
 
-手机版 0.2.3 预览位于 [`android/`](android/README.md)：通过 root 从当前系统或手机解包 ROM
+手机版 0.2.4 预览位于 [`android/`](android/README.md)：通过 root 从当前系统或手机解包 ROM
 生成 ZIP，也可输入 `/data/DNA/DNA_01` 一类目录，备份后原位内置杜比；无需电脑参与运行。
 公开仓库不附带包含专有资产的 APK。
 
@@ -56,22 +56,24 @@ App 源码目录为 [LunarisDolby](https://github.com/Pong-Development/hardware_
 本工具修改解包目录，不自动生成镜像或刷机；实际改动以该次记录为准。
 
 **原生内置与模块输出分开：** 内置使用 `Build` 写入分区文件、更新打包标签并编译目标系统策略；
-模块使用 `ModuleBuild` 输出 KSU 安装/自挂载脚本与 `sepolicy.rule`。最小范围挂载修复只作用于后者，
+模块使用 `ModuleBuild` 输出 KSU 安装/元模块补挂脚本与 `sepolicy.rule`。最小范围挂载修复只作用于后者，
 不会让原生内置依赖 KSU、元模块、post-mount 或模块 initrc 注入。
 
 ## 当前模块机制
 
-电脑端源码/本地构建版本为 1.0.2；模块运行时继续使用独立的 0.6.1 测试版编号。
-当前模块版本为 **`0.6.1-selfmount-preview6`**，`versionCode=609`；手机生成器为 0.2.3 测试版。
+电脑端源码/本地构建版本为 1.0.3；模块运行时继续使用独立的 0.6.1 测试版编号。
+当前模块版本为 **`0.6.1-meta-repair-preview1`**，`versionCode=613`；手机生成器为 0.2.4 测试版。
 电脑端三种来源、手机版两种来源共用同一模块生成器与运行脚本。
 
 已去掉安装阶段的设备指纹、SDK、架构、原文件哈希及冲突名单限制，开机不再以原 ROM 身份拦截。
 必要的工具/挂载操作、启动顺序、失败回退和安全路径处理保留。去限制不等于跨机型通刷。
 模块直接生成完整杜比相关 `sepolicy.rule`，**不再调用策略编译器**；原生内置流程不变。
 
-1. 提前准备 HIDL 支持声明，使用 `files/` 独立载荷和同步 post-mount 自挂载，保留原有子挂载。
-   按开机时实际目录缩小范围：已有文件单独 bind，新增文件只合并最近已有父目录，不新增 OverlayFS。
-   文件 bind 失败可限额复制到私有 tmpfs 暂存区；目录发布失败仍停止接入，不覆盖原厂分区。
+1. 恢复首个公开版本 `e09bb23` 的标准 `system/` 单份载荷、挂载前保存/挂载后恢复子挂载流程。
+   不生成 `files/` 或 `self-mount.sh`，正常安装不设置 `skip_mount` / `skip_mountify`。
+   同步 post-mount 先恢复 VINTF/OPEX 子挂载，再核对并补挂缺失或内容/权限/标签不符的项。
+   已有文件单独 bind，新增文件只合并必要父目录；补挂不新增 OverlayFS 文件系统层。
+   没有相关元模块挂载或零项正确载荷时停止，不接管整包；复制兜底有内存限额。
 2. 文件、依赖与服务就绪检查通过后，才发布 Codec2/default9 声明并提交音频配置。
 3. 解码服务不使用 `oneshot`，提供 `default9` 接口启动映射及 `restart_period 3`。
    这是进程退出后的恢复间隔，**不是每三秒检查或重启健康进程**。
@@ -79,7 +81,16 @@ App 源码目录为 [LunarisDolby](https://github.com/Pong-Development/hardware_
 5. 开机对 initrc 缓存检查一次，仅不一致时限时刷新一次；没有开机后的常驻轮询。
 6. Action 按钮只读检查本次启动状态，不把上次开机的遗留日志当作成功证据。
 7. 安装同签名 Dolby App 更新，保留系统底包，不清数据；修复数据目录标签以恢复设置持久化。
-   详见[自挂载与兼容说明](docs/元模块与自挂载兼容说明.md)。
+   详见[当前方案和冲突测试](docs/元模块补挂验证_20260929.md)；旧版见[历史兼容说明](docs/元模块与自挂载兼容说明.md)。
+
+本次 88 项 Python 回归、37 项 Linux 隔离挂载测试、8 项 Android Enforcing 私有命名空间测试通过。
+PLQ110 + Mountify 2.0.3 已验证启动、服务注册及 82/82 项直接挂齐（补挂 0 次）。
+这些结果不代表每种元模块都验证过，也不等于所有播放器实际使用 DAP/杜比解码器。
+其他模块晚于补挂再次覆盖、元模块完全失效、原厂子挂载无法恢复时，仍不能保证正常接入。
+
+**DSU 注意：** `/metadata` 可能与主系统共享。DSU 没有管理器或模块目录，不代表没有主系统留下的早期注入。
+测试已内置杜比的 ROM 前，禁用/卸载主系统旧杜比模块并确认其 initrc 缓存解除，避免重复 VINTF 声明。
+本版没有自动清理其他系统的 metadata，也不声称已解决跨 DSU 隔离。
 
 `modules.rc` 刷新只影响**下次启动**，不能替换当前 init 已加载的定义。
 手工改 RC 后可在重启前执行：
@@ -107,7 +118,7 @@ su -c 'sh /data/adb/modules/mio_dolby_c17_generated/initrc-cache.sh repair'
 - 推荐 KSU + MOUNTIFY 不等于所有版本、机型、SELinux 环境都兼容。
 - 部分旧 SukiSU 用户空间没有 `ksud initrc` 接口。安装器不会跳过这一启动依赖；
   更新挂载元模块或仅更换管理器 APK，不保证补齐接口。
-- 当前参考实测为一加 13、C17 Android 17 DSU、KSU + Mountify 2.0.3，系统原本为 Permissive。
+- 历史参考实测包括一加 13 的 C17 DSU；本版新增 PLQ110 主系统、KSU + Mountify 2.0.3、Enforcing 的上述限定验证。
   **没有证明 Enforcing 或其他机型普遍可用**；工具不会主动关闭 SELinux。
 - 后续在 PLQ110 / Android 17 / Enforcing 做过隔离挂载、复制兜底、App 更新与标签修复测试；
   用户反馈恢复正常。这不等于各 KSU 分支和手机均完成开机/音频验证。

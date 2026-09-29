@@ -30,7 +30,7 @@ repair_app_data_labels() {
         ls -ldZ "$path"
     done
 }
-APK="$M/files/system_ext/priv-app/LunarisDolby/LunarisDolby.apk"
+APK="$M/system/system_ext/priv-app/LunarisDolby/LunarisDolby.apk"
 [ -s "$APK" ] && [ ! -L "$APK" ] || { echo '模块中的杜比 APK 不存在或无效。'; exit 1; }
 current=$("$BB" timeout -s TERM -k 1 5 pm path --user 0 "$APP" | sed -n 's/^package://p' | head -n 1)
 case "$current" in /data/app/*)
