@@ -3,6 +3,7 @@
 /data/adb/ksud initrc --help >/dev/null 2>&1 || abort '当前 KernelSU 不支持 initrc 注入，无法保证杜比在音频服务前准备完成。'
 [ -x /data/adb/ksu/bin/busybox ] || abort '没有找到 KernelSU 的 busybox，无法执行挂载工具。'
 M="$MODPATH"
+rm -f "$M/skip_mount" "$M/skip_mountify"
 . "$MODPATH/runtime-paths.sh" || abort '缺少运行路径脚本，请重新下载模块。'
 P="$(dolby_preinit_base)/mio_dolby_c17_generated"
 [ -d /metadata ] || abort '没有可用的 metadata 分区；不会改用碰运气的延迟启动。'

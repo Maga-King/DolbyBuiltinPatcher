@@ -5,8 +5,7 @@ S=/dev/mio-preserve-mio_dolby_c17_generated
 BB=/data/adb/ksu/bin/busybox
 case "$1" in
 save)
-    # Failure closes metamodule mounting; do not leave a partial snapshot active.
-    trap 'touch "$M/skip_mount" "$M/skip_mountify"' 0
+    # Propagate save failures without disabling the module's metamodule mount.
     [ ! -e "$S" ] || exit 1
     mkdir -m 0700 "$S"
     $BB mount -t tmpfs -o mode=0700,nodev KSU "$S"

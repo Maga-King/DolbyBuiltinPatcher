@@ -535,6 +535,17 @@ class KsuTests(unittest.TestCase):
         self.assertIn('卸载本模块→重启→重新安装',module)
         self.assertNotIn("'preserve.sh','service.sh'",boot)
 
+    def test_meta_preserve_failure_does_not_create_skip_mount_flags(self):
+        post_fs=(ASSETS/'ksu/post-fs-data.sh').read_text(encoding='utf-8')
+        preserve=(ASSETS/'ksu/boot/preserve.sh').read_text(encoding='utf-8')
+        for text in (post_fs,preserve):
+            self.assertNotIn('touch "$M/skip_mount"',text)
+            self.assertNotIn('touch "$M/skip_mountify"',text)
+        self.assertIn('exit "$rc"',post_fs)
+        self.assertIn('preserve.sh" restore || exit 1',(ASSETS/'ksu/post-mount.sh').read_text(encoding='utf-8'))
+        installer=(ASSETS/'ksu/boot/install-early.sh').read_text(encoding='utf-8')
+        self.assertIn('rm -f "$M/skip_mount" "$M/skip_mountify"',installer)
+
     def test_repair_is_bounded_and_does_not_control_services(self):
         text=(ASSETS/'ksu/boot/repair-mounts.sh').read_text(encoding='utf-8')
         for forbidden in ('ctl.start','ctl.stop','ctl.restart','killall','sleep ','rm -rf'):

@@ -5,7 +5,7 @@
 
 模块署名：**科比**。推荐组合：**KSU + MOUNTIFY**。
 
-手机版 0.2.4 预览位于 [`android/`](android/README.md)：通过 root 从当前系统或手机解包 ROM
+手机版 0.2.5 预览位于 [`android/`](android/README.md)：通过 root 从当前系统或手机解包 ROM
 生成 ZIP，也可输入 `/data/DNA/DNA_01` 一类目录，备份后原位内置杜比；无需电脑参与运行。
 公开仓库不附带包含专有资产的 APK。
 
@@ -61,8 +61,8 @@ App 源码目录为 [LunarisDolby](https://github.com/Pong-Development/hardware_
 
 ## 当前模块机制
 
-电脑端源码/本地构建版本为 1.0.3；模块运行时继续使用独立的 0.6.1 测试版编号。
-当前模块版本为 **`0.6.1-meta-repair-preview1`**，`versionCode=613`；手机生成器为 0.2.4 测试版。
+电脑端源码/本地构建版本为 1.0.4；模块运行时继续使用独立的 0.6.1 测试版编号。
+当前模块版本为 **`0.6.1-meta-repair-preview1`**，`versionCode=613`；手机生成器为 0.2.5 测试版。
 电脑端三种来源、手机版两种来源共用同一模块生成器与运行脚本。
 
 已去掉安装阶段的设备指纹、SDK、架构、原文件哈希及冲突名单限制，开机不再以原 ROM 身份拦截。

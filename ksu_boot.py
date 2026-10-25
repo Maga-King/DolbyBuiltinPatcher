@@ -6,7 +6,7 @@ from core import ASSETS, PatchError, read, xml_parse, xml_bytes
 RUNTIME_VERSION='0.6.1-meta-repair-preview1'
 BIND_KEYS=('ro.system.build.fingerprint','ro.vendor.build.fingerprint','ro.board.platform')
 
-MODULE_README='''KSU 元模块承载＋缺失项补挂（电脑 1.0.3 / Android 0.2.4 测试版）
+MODULE_README='''KSU 元模块承载＋缺失项补挂（电脑 1.0.4 / Android 0.2.5 测试版）
 方案基于 GitHub 首个公开版本 e09bb23，不是双份载荷自挂载版。
 普通文件只有 system/ 一份；不生成 files/、self-mount.sh 或正常跳过元模块标记。
 挂载前保存原系统子挂载，元模块挂载后恢复，再补挂缺失或内容/权限/标签不符的项。
