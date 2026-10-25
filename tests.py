@@ -583,6 +583,23 @@ class KsuTests(unittest.TestCase):
             self.assertNotIn(forbidden,text)
         self.assertIn('install-app.sh',(ASSETS/'ksu/boot/service.sh').read_text(encoding='utf-8'))
 
+    def test_audioeffectcenter_freeze_is_owned_and_restored_on_uninstall(self):
+        from pathlib import Path
+        freezer=(ASSETS/'ksu/boot/freeze-audioeffectcenter.sh').read_text(encoding='utf-8')
+        service=(ASSETS/'ksu/boot/service.sh').read_text(encoding='utf-8')
+        uninstall=(ASSETS/'ksu/boot/uninstall.sh').read_text(encoding='utf-8')
+        customize=(ASSETS/'ksu/customize.sh').read_text(encoding='utf-8')
+        boot=(Path(__file__).parent/'ksu_boot.py').read_text(encoding='utf-8')
+        self.assertIn('com.oplus.audio.effectcenter',freezer)
+        self.assertIn('pm list packages -d --user 0 "$APP"',freezer)
+        self.assertIn('audioeffectcenter-disabled-by-module',freezer)
+        self.assertIn('disable-user --user 0 "$APP"',freezer)
+        self.assertIn('freeze-audioeffectcenter.sh',service)
+        self.assertIn('freeze-audioeffectcenter.sh',customize)
+        self.assertIn('pm enable --user 0 "$APP"',uninstall)
+        self.assertIn('audioeffectcenter-disabled-by-module',uninstall)
+        self.assertIn("'freeze-audioeffectcenter.sh'",boot)
+
     def test_copy_fallback_is_memory_bounded_and_removes_bind_before_copy(self):
         text=(ASSETS/'ksu/boot/mount-engine.sh').read_text(encoding='utf-8')
         self.assertIn('134217728',text)

@@ -5,7 +5,7 @@
 
 模块署名：**科比**。推荐组合：**KSU + MOUNTIFY**。
 
-手机版 0.2.5 预览位于 [`android/`](android/README.md)：通过 root 从当前系统或手机解包 ROM
+手机版 0.2.6 预览位于 [`android/`](android/README.md)：通过 root 从当前系统或手机解包 ROM
 生成 ZIP，也可输入 `/data/DNA/DNA_01` 一类目录，备份后原位内置杜比；无需电脑参与运行。
 公开仓库不附带包含专有资产的 APK。
 
@@ -61,8 +61,8 @@ App 源码目录为 [LunarisDolby](https://github.com/Pong-Development/hardware_
 
 ## 当前模块机制
 
-电脑端源码/本地构建版本为 1.0.4；模块运行时继续使用独立的 0.6.1 测试版编号。
-当前模块版本为 **`0.6.1-meta-repair-preview1`**，`versionCode=613`；手机生成器为 0.2.5 测试版。
+电脑端源码/本地构建版本为 1.0.5；模块运行时继续使用独立的 0.6.1 测试版编号。
+当前模块版本为 **`0.6.1-meta-repair-preview1`**，`versionCode=613`；电脑生成器为 1.0.5，手机生成器为 0.2.6 测试版。
 电脑端三种来源、手机版两种来源共用同一模块生成器与运行脚本。
 
 已去掉安装阶段的设备指纹、SDK、架构、原文件哈希及冲突名单限制，开机不再以原 ROM 身份拦截。
@@ -82,6 +82,7 @@ App 源码目录为 [LunarisDolby](https://github.com/Pong-Development/hardware_
 6. Action 按钮只读检查本次启动状态，不把上次开机的遗留日志当作成功证据。
 7. 安装同签名 Dolby App 更新，保留系统底包，不清数据；修复数据目录标签以恢复设置持久化。
    详见[当前方案和冲突测试](docs/元模块补挂验证_20260929.md)；旧版见[历史兼容说明](docs/元模块与自挂载兼容说明.md)。
+8. 刷入时停用 `com.oplus.audio.effectcenter`，仅在确认该用户下原本启用后执行；状态无法确认或包不存在时不改动。卸载模块时只恢复本模块确实停用的实例。
 
 本次 88 项 Python 回归、37 项 Linux 隔离挂载测试、8 项 Android Enforcing 私有命名空间测试通过。
 PLQ110 + Mountify 2.0.3 已验证启动、服务注册及 82/82 项直接挂齐（补挂 0 次）。

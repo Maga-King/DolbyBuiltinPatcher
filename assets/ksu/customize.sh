@@ -14,5 +14,10 @@ while IFS="$tab" read -r relative mode label; do
 done < "$MODPATH/labels.tsv"
 # RUNTIME_INSTALL
 ui_print '杜比全景+解码器：安装提示'
+if /system/bin/sh "$MODPATH/freeze-audioeffectcenter.sh"; then
+    ui_print 'OPLUS 音效中心已按需停用；卸载模块时会恢复原先启用状态。'
+else
+    ui_print 'OPLUS 音效中心暂未停用；开机完成后模块会有界重试。'
+fi
 ui_print '切换元模块后，请卸载本模块 → 重启 → 重新安装。'
 ui_print '成功刷入不代表所有机型兼容，请保留救砖和禁用模块的方法。'

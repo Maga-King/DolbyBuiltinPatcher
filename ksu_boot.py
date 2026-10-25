@@ -6,7 +6,7 @@ from core import ASSETS, PatchError, read, xml_parse, xml_bytes
 RUNTIME_VERSION='0.6.1-meta-repair-preview1'
 BIND_KEYS=('ro.system.build.fingerprint','ro.vendor.build.fingerprint','ro.board.platform')
 
-MODULE_README='''KSU 元模块承载＋缺失项补挂（电脑 1.0.4 / Android 0.2.5 测试版）
+MODULE_README='''KSU 元模块承载＋缺失项补挂（电脑 1.0.5 / Android 0.2.6 测试版）
 方案基于 GitHub 首个公开版本 e09bb23，不是双份载荷自挂载版。
 普通文件只有 system/ 一份；不生成 files/、self-mount.sh 或正常跳过元模块标记。
 挂载前保存原系统子挂载，元模块挂载后恢复，再补挂缺失或内容/权限/标签不符的项。
@@ -18,6 +18,7 @@ MODULE_README='''KSU 元模块承载＋缺失项补挂（电脑 1.0.4 / Android 
 子挂载恢复失败不能保证系统正常；不会卸载元模块共享父目录，请禁用杜比并保留日志。
 只影响生成模块，不改变 ROM 原生内置事务、标签或策略编译流程。
 保留 87b4cbb 的数据库权限兜底、同签名 App 更新安装与数据标签修复。
+刷入时尝试停用 com.oplus.audio.effectcenter；仅原本启用且确认停用成功时记录，卸载模块时恢复。
 数据库内容和用户预设不删除；服务初始定义与 Codec2 接口/恢复间隔保留。
 仍需开机早期可读 /metadata；watchdog 目录非必需；没有可用早期接口不能强行跳过。
 不按 SDK、机型和指纹拒装不代表通刷。PLQ110 Enforcing + Mountify 2.0.3 已验证开机及服务注册。
@@ -77,7 +78,7 @@ def export_boot(build,folder,put,late,mounted,bindings,device_target):
     put('early/target.tsv',''.join(k+'\t'+v+'\n' for k,v in bindings.items()).encode())
     put('early/early.sh',(ASSETS/'ksu/boot/early.sh').read_bytes(),'0755')
     put('initrc/dolby.rc',runtime_rc.encode())
-    for name in ('gate.sh','commit.sh','recover.sh','codec.sh','service.sh','install-early.sh','uninstall.sh','initrc-cache.sh','runtime-paths.sh','mount-engine.sh','preserve.sh','repair-mounts.sh','install-app.sh'):
+    for name in ('gate.sh','commit.sh','recover.sh','codec.sh','service.sh','install-early.sh','uninstall.sh','initrc-cache.sh','runtime-paths.sh','mount-engine.sh','preserve.sh','repair-mounts.sh','install-app.sh','freeze-audioeffectcenter.sh'):
         put(name,(ASSETS/'ksu/boot'/name).read_bytes(),'0755')
     for stage in ('post-fs-data.sh','post-mount.sh'):
         put(stage,(ASSETS/'ksu'/stage).read_bytes(),'0755')
