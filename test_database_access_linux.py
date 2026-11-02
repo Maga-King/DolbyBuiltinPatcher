@@ -5,8 +5,8 @@ import subprocess
 import tempfile
 import unittest
 
-GATE = Path(__file__).with_name('assets').joinpath('ksu/boot/gate.sh').read_text(encoding='utf-8')
-BLOCK = GATE.split('# BEGIN DOLBY DATABASE ACCESS', 1)[1].split('# END DOLBY DATABASE ACCESS', 1)[0]
+PREPARE = Path(__file__).with_name('assets').joinpath('ksu/boot/prepare-data.sh').read_text(encoding='utf-8')
+BLOCK = PREPARE.split('# BEGIN DOLBY DATABASE ACCESS', 1)[1].split('# END DOLBY DATABASE ACCESS', 1)[0]
 
 
 class DatabaseAccessTests(unittest.TestCase):

@@ -17,8 +17,8 @@ set_perm_recursive "$P" 0 0 0755 0644 u:object_r:metadata_file:s0
 while IFS="$tab" read -r source target expected label; do
     set_perm "$P/$source" 0 0 0644 "$label"
 done < "$P/vintf.tsv"
-ui_print '杜比全景+解码器：原版元模块＋缺失项补挂测试版'
-ui_print '普通文件需要元模块先挂载，本模块仅补未生效项；不强杀 HWS，不重启音频服务。'
+ui_print '杜比全景+解码器：标准路径配置、无启动门控测试版'
+ui_print '音频配置和库文件由元模块加载；init 直接启动杜比服务，补挂结果不作为启动条件。'
 ui_print '切换元模块后，请卸载本模块 → 重启 → 重新安装。'
 ui_print '正常情况下不设置 skip_mount；元模块未生效时不会整包自挂载接管。'
 ui_print '重启后可点 Action 运行一次中文诊断；不会启动常驻检测。'

@@ -168,7 +168,7 @@ collect_database() {
         done
     done
     capture database/recent-dms.txt 8 logcat -b all -d -v threadtime -s 'DatabaseHelper:V' 'DsContextManager:V' 'DlbDatabaseProvider:V' 'DolbyManagerService:V' 'DolbyManagerSvc:V' 'DMSService:V' 'DsManager:V' 'TuningFileParser:V' 'AHAL_DolbyDapEffect:V' 'DlbDapEffectContext:V' 'DlbEffectContext:V' 'libc:F' '*:S'
-    for f in gate.sh service.sh post-fs-data.sh sepolicy.rule module.prop; do
+    for f in prepare-data.sh gate.sh service.sh post-fs-data.sh sepolicy.rule module.prop; do
         copy_file "$M/$f" "module/$f"
     done
     return 0
@@ -238,13 +238,13 @@ for table in mounts.tsv late.tsv; do
         if [ "$table" = mounts.tsv ]; then source=$a; target=$b; else source=$b; target=$c; fi
         case "$target" in /system/*|/system_ext/*|/vendor/*|/odm/*|/product/*) ;; *) continue;; esac
         case "$target" in *..*|*\\*) continue;; esac
-        case "$source" in files/*|late/*) ;; *) continue;; esac
+        case "$source" in system/*|files/*|late/*) ;; *) continue;; esac
         case "$source" in *..*|*\\*) continue;; esac
         if bounded 3 cmp -s "$M/$source" "/proc/1/root$target"; then result=MATCH; else result=MISMATCH; fi
         printf '%s\t%s\t%s\n' "$result" "$source" "$target" >> "$R/module-live-compare.tsv"
         case "$target" in *.apk) continue;; esac
         copy_file "$target" "rom$target"
-        case "$source" in late/*)
+        case "$source" in late/*|system/*/etc/*.xml|system/etc/*.xml)
             copy_file "$M/$source" "module/$source"
             copy_file "/proc/1/root$target" "init-view$target";;
         esac
@@ -293,13 +293,19 @@ for name in "$APP" audioserver audiohalservice.qti dolbycodecservice vendor.dolb
         capture "process/$pid/mountinfo.txt" 3 cat "/proc/$pid/mountinfo"
         echo "$pid $name $(readlink /proc/$pid/ns/mnt)" >> "$R/process-identities.txt"
         if [ "$name" = audioserver ] || [ "$name" = audiohalservice.qti ]; then
-            [ -f "$M/late.tsv" ] || continue
-            while read -r phase source target unused; do
-                [ "$phase" = audio ] || continue
-                case "$target" in /vendor/*|/odm/*|/system/*|/system_ext/*) ;; *) continue;; esac
-                case "$target" in *..*|*\\*) continue;; esac
-                copy_file "/proc/$pid/root$target" "process/$pid/audio-config$target"
-            done < "$M/late.tsv"
+            for table in mounts.tsv late.tsv; do
+                [ -f "$M/$table" ] || continue
+                while read -r a b c d; do
+                    if [ "$table" = mounts.tsv ]; then target=$b; else
+                        [ "$a" = audio ] || continue
+                        target=$c
+                    fi
+                    case "$target" in /vendor/*|/odm/*|/system/*|/system_ext/*) ;; *) continue;; esac
+                    case "$target" in *..*|*\\*) continue;; esac
+                    case "$target" in */etc/*.xml) ;; *) continue;; esac
+                    copy_file "/proc/$pid/root$target" "process/$pid/audio-config$target"
+                done < "$M/$table"
+            done
         fi
     done
 done

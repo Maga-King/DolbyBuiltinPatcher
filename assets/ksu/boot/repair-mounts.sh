@@ -27,7 +27,7 @@ cleanup() {
         fi
         rm -f "$R/repair-ok"
         [ -z "$work_id" ] || [ "$(mount_id "$W")" != "$work_id" ] || umount -l "$W"
-        echo 'REPAIR_FAILED：不提交杜比音效；不会卸载元模块共享目录层。'
+        echo 'REPAIR_FAILED：补挂未完成；不会卸载元模块共享目录层，也不阻止 init 启动杜比服务。'
     fi
 }
 trap cleanup EXIT

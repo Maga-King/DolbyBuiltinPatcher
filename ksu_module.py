@@ -33,8 +33,7 @@ def module_path(canonical):
     part,tail=canonical.split('/',1)
     if part not in ('system','system_ext','vendor','product','odm') or '..' in canonical.split('/'):
         raise PatchError('非法模块路径：'+canonical)
-    # ODM is not universally remapped by metamodules. Handle its existing files
-    # with late bind mounts; DAX's duplicate vendor config supplies the fallback.
+    # Keep audio XML and ODM configs in the same standard tree as the libraries.
     return 'system/'+tail if part=='system' else 'system/'+part+'/'+tail
 
 
@@ -47,7 +46,7 @@ def check_destination(destination,source=None):
 
 
 def device_manifest(build):
-    """Use an existing device manifest as a late bind target, not a new fragment."""
+    """Merge into an existing device manifest for early-init publication."""
     fragment=xml_parse(build.get('vendor/etc/vintf/manifest/dolby-native.xml').read_bytes())
     candidates=[build.rom.path('vendor/etc/vintf/manifest.xml')]
     # Path ordering is case-insensitive on Windows but case-sensitive on Android.
@@ -63,7 +62,7 @@ def device_manifest(build):
         for hal in fragment.findall('hal'):root.append(copy.deepcopy(hal))
         name='vendor/'+path.relative_to(build.rom.parts['vendor']).as_posix()
         return name,xml_bytes(root,data)
-    raise PatchError('没有可用于延迟挂载的现有 vendor device manifest；停止生成，不替换整目录')
+    raise PatchError('没有可用于早期挂载的现有 vendor device manifest；停止生成，不替换整目录')
 
 
 class ModuleBuild(Build):
@@ -98,16 +97,15 @@ class ModuleBuild(Build):
 
     def export_module(self):
         folder=self.session/'module';folder.mkdir()
-        late=[];labels=[];mounted=[];excluded=[]
+        vintf=[];labels=[];mounted=[];excluded=[]
         def put(name,data,mode='0644',label='u:object_r:system_file:s0'):
             path=folder/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(data)
             labels.append((name,mode,label));return path
-        def private(canonical,data,label,phase):
+        def early_manifest(canonical,data,label):
             if not self.rom.path(canonical).is_file():
-                raise PatchError('延迟挂载目标在源 ROM 中不存在：'+canonical)
-            name='late/'+canonical;put(name,data,label=label)
-            late.append((phase,name,'/'+canonical,sha(self.rom.path(canonical))))
-        effects=set(self.info['configuration']['effects']);codecs=set(self.info['configuration']['codecs'])
+                raise PatchError('早期挂载目标在源 ROM 中不存在：'+canonical)
+            source='vintf/'+canonical;put('early/'+source,data,label=label)
+            vintf.append((source,'/'+canonical,sha(self.rom.path(canonical)),label))
         native_rc=None
         for rel,row in sorted(self.changes.items()):
             name=row['canonical'];data=(self.tree/rel).read_bytes();label=row['label']
@@ -116,20 +114,14 @@ class ModuleBuild(Build):
             if '/etc/selinux/' in name:
                 excluded.append(name);continue
             if name=='vendor/etc/vintf/manifest/dolby-native.xml':continue
-            if name in effects or name in codecs:
-                private(name,data,label,'audio');continue
             if '/etc/vintf/' in name:
-                private(name,data,label,'vintf');continue
-            if name.startswith('odm/'):
-                if self.rom.path(name).is_file():private(name,data,label,'config')
-                else:excluded.append(name)  # vendor/etc/dolby has the same DAX config.
-                continue
+                early_manifest(name,data,label);continue
             if 'libaudioeffecthal.qti.so' in name:raise PatchError('禁止将原厂音效 HAL 替换加入模块')
-            # No top-level system directory: metamodules must not scan this payload.
+            # Metamodules publish every non-VINTF file, including audio configs.
             out=module_path(name);path=put(out,data,row['mode'],label)
             mounted.append((out,'/'+name,sha(path)))
         name,data=device_manifest(self)
-        private(name,data,'u:object_r:vendor_configs_file:s0','vintf')
+        early_manifest(name,data,'u:object_r:vendor_configs_file:s0')
         # export_boot installs and validates the required early init RC below.
         # Never stage the obsolete late-start/oneshot Codec2 template.
         if native_rc:put('solidify/00-dolby-native.rc',native_rc)
@@ -141,10 +133,9 @@ class ModuleBuild(Build):
         bindings=target_bindings(self)
         put('target.tsv',''.join(k+'\t'+v+'\n' for k,v in bindings.items() if v).encode())
         put('mounts.tsv',''.join('\t'.join(row)+'\n' for row in mounted).encode())
-        put('late.tsv',''.join('\t'.join(row)+'\n' for row in late).encode())
-        for filename in ('service.sh','customize.sh','action.sh'):
+        for filename in ('action.sh',):
             put(filename,(ASSETS/'ksu'/filename).read_bytes(),'0755')
-        boot_report=export_boot(self,folder,put,late,mounted,bindings,'/'+name)
+        boot_report=export_boot(put,vintf,mounted,bindings)
         # Native domains already present in the source must have the service labels
         # before managers boot; overlaying contexts after their caches load is unsafe.
         requirements=[('vendor/etc/selinux/vendor_hwservice_contexts','vendor.dolby.hardware.dms::IDms','hal_dms_hwservice'),
@@ -154,11 +145,11 @@ class ModuleBuild(Build):
             if not any(line.split() and line.split()[0]==key and line.split()[-1]=='u:object_r:'+typename+':s0' for line in text.splitlines()):
                 raise PatchError('模块无法安全晚加载服务标签，需先原生适配：'+filename+' '+key)
         write(folder/'labels.tsv',''.join('\t'.join(row)+'\n' for row in labels))
-        write(folder/'module.prop',f'id={MODULE_ID}\nname=杜比全景+解码器\nversion={RUNTIME_VERSION}\nversionCode=613\nauthor=科比\ndescription=建议 KSU＋MOUNTIFY；原版元模块＋缺失项补挂（测试版）；切换元模块后，请卸载本模块→重启→重新安装。Action 可运行一次中文诊断。\n')
+        write(folder/'module.prop',f'id={MODULE_ID}\nname=杜比全景+解码器\nversion={RUNTIME_VERSION}\nversionCode=614\nauthor=科比\ndescription=音频配置使用标准路径；init 直接启动杜比服务，无启动门控；切换元模块后，请卸载本模块→重启→重新安装。Action 可运行一次中文诊断。\n')
         write(folder/'README.txt',MODULE_README)
         report=dict(version=VERSION,kind='ksu-module',applied=False,install_performed=False,rom_modified=False,
-                    source=self.source_info,rom_info=self.info,module_mounts=mounted,late_mounts=late,
-                    excluded_from_mount=excluded,boot_tested=False,limitations=['target-specific','metamodule and repair require device testing','bounded HIDL startup may fail safely'])
+                    source=self.source_info,rom_info=self.info,module_mounts=mounted,late_mounts=[],
+                    excluded_from_mount=excluded,boot_tested=False,limitations=['target-specific','metamodule and startup require device testing','no automatic audio config rollback'])
         report['boot_runtime']=boot_report
         save_json(self.session/'module-report.json',report)
         put('module-report.json',(self.session/'module-report.json').read_bytes())

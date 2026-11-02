@@ -46,7 +46,7 @@ section '本次开机的挂载和启动记录'
 if cmp -s "$R/repair-ok" /proc/sys/kernel/random/boot_id; then
     echo '元模块后补挂成功记录属于本次开机。'
 else
-    echo '没有本次开机的元模块后补挂成功记录。先看 preserve.log 和 repair.log，不要只盯着 App。'
+    echo '没有本次开机的补挂成功记录；NoMount VFS 可能没有传统挂载记录。请结合文件和服务状态判断。'
 fi
 tail -35 "$R/repair.log" 2>/dev/null
 section '实际挂载范围：F 是单文件，D 是必要的父目录'
@@ -58,14 +58,15 @@ else
 fi
 if cmp -s "$MODDIR/.runtime/boot" /proc/sys/kernel/random/boot_id; then
     cat "$MODDIR/.runtime/status" 2>/dev/null || true
-    for name in gate codec commit recover; do
+    for name in prepare; do
         echo "$name:"
         tail -20 "$MODDIR/.runtime/$name.log" 2>/dev/null
     done
 else
-    echo '没有本次开机的启动门控记录；旧日志不能证明杜比已启动。'
+    echo '没有本次开机的数据准备记录；请查看下面的 init 服务状态，旧日志不能证明服务已启动。'
 fi
-section 'GitHub 原版元模块流程＋缺失项补挂'
+section '标准路径配置＋独立缺失项补挂'
+echo '本版没有启动门控：音频 XML 由元模块加载，补挂失败不会阻止 init 启动杜比服务。'
 echo "本包单份 system/ 载荷，需要元模块；未使用 files/ 双份载荷或 self-mount.sh。"
 echo "原版子挂载保存/恢复："; tail -50 "$MODDIR/preserve.log" 2>/dev/null
 echo "元模块后补挂："; tail -60 "$R/repair.log" 2>/dev/null

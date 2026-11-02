@@ -507,11 +507,12 @@ class AdbTests(unittest.TestCase):
 
 class KsuTests(unittest.TestCase):
     def test_existing_dolby_database_is_prepared_before_dms(self):
-        text=(ASSETS/'ksu/boot/gate.sh').read_text(encoding='utf-8')
+        text=(ASSETS/'ksu/boot/prepare-data.sh').read_text(encoding='utf-8')
         start=text.index('# BEGIN DOLBY DATABASE ACCESS')
         end=text.index('# END DOLBY DATABASE ACCESS')
         block=text[start:end]
-        self.assertLess(end,text.index('setprop ctl.start'))
+        rc=(ASSETS/'ksu/boot/init.rc').read_text(encoding='utf-8')
+        self.assertLess(rc.index('exec_start mio-dolby-prepare'),rc.index('    start mio-dolby-hidl'))
         for suffix in ('', '-wal', '-shm', '-journal'):
             self.assertIn('/data/vendor/dolby/dax_sqlite3.db'+suffix,block)
         for required in ('chown 1013:1013 "$db"', 'chmod 0600 "$db"',
@@ -557,7 +558,7 @@ class KsuTests(unittest.TestCase):
         self.assertIn('repair-ok',text)
         self.assertIn('[ "$matched" -gt 0 ]',text)
         self.assertIn('rollback_publications',text)
-        self.assertIn('runtime-paths.sh',(ASSETS/'ksu/boot/gate.sh').read_text(encoding='utf-8'))
+        self.assertIn('runtime-paths.sh',(ASSETS/'ksu/boot/install-early.sh').read_text(encoding='utf-8'))
         self.assertIn('remount,bind,ro "$payload" "$target"',text)
         engine=(ASSETS/'ksu/boot/mount-engine.sh').read_text(encoding='utf-8')
         self.assertIn('remount,bind,ro "$src" "$dst"',engine)
@@ -652,7 +653,7 @@ class KsuTests(unittest.TestCase):
         self.assertNotIn('ro.vendor.build.fingerprint',target_bindings(build))
 
     def test_early_runtime_no_system_service_restart(self):
-        for name in ('gate.sh','codec.sh','commit.sh','recover.sh','preserve.sh','init.rc'):
+        for name in ('prepare-data.sh','preserve.sh','init.rc'):
             text=(ASSETS/'ksu/boot'/name).read_text(encoding='utf-8')
             self.assertNotIn('ctl.restart',text)
             self.assertNotIn('ctl.stop',text)
@@ -660,10 +661,14 @@ class KsuTests(unittest.TestCase):
             self.assertNotIn('hash()',text)
         rc=(ASSETS/'ksu/boot/init.rc').read_text(encoding='utf-8')
         self.assertIn('on early-init',rc)
-        self.assertIn('timeout_period 25',rc)
-        self.assertLess(rc.index('exec_start mio-dolby-readiness'),rc.index('exec_start mio-dolby-commit'))
-        code=(ASSETS/'ksu/boot/codec.sh').read_text(encoding='utf-8')
-        self.assertLess(code.index('linker64 --list'),code.index('mount -o bind "$M/codec-manifest.xml"'))
+        self.assertIn('timeout_period 8',rc)
+        actions=rc.split('on early-boot\n',1)[1].splitlines()
+        self.assertEqual([line.strip() for line in actions if line.strip()],
+                         ['exec_start mio-dolby-prepare','start mio-dolby-hidl',
+                          'start mio-dolby-dms','start mio-dolby-codec'])
+        prepare=(ASSETS/'ksu/boot/prepare-data.sh').read_text(encoding='utf-8')
+        for forbidden in ('repair-ok','linker64','getprop','mount -o','ctl.start'):
+            self.assertNotIn(forbidden,prepare)
 
     def test_android_mksh_hash_alias_is_not_used_as_function(self):
         text=(ASSETS/'ksu/service.sh').read_text(encoding='utf-8')
@@ -680,7 +685,7 @@ class KsuTests(unittest.TestCase):
         self.assertNotIn('oneshot',codec)
         self.assertIn('interface aidl android.hardware.media.c2.IComponentStore/default9',codec)
         self.assertIn('restart_period 3',codec)
-        self.assertIn('    disabled',codec)  # preserve the pre-audio readiness gate
+        self.assertIn('    disabled',codec)  # Explicit early-boot start, not class startup.
 
     def test_codec_recovery_rejects_broken_templates(self):
         from ksu_boot import validate_codec_recovery
@@ -727,7 +732,7 @@ class KsuTests(unittest.TestCase):
         self.assertNotIn('Another active Dolby module',text)
 
     def test_module_has_no_identity_or_stock_hash_rejection(self):
-        for rel in ('customize.sh','boot/install-early.sh','boot/early.sh','boot/gate.sh','boot/commit.sh'):
+        for rel in ('customize.sh','boot/install-early.sh','boot/early.sh','boot/prepare-data.sh'):
             text=(ASSETS/'ksu'/rel).read_text(encoding='utf-8')
             for forbidden in ('sha256sum','ro.system.build.fingerprint','ro.vendor.build.fingerprint',
                               '$ARCH','$API','Original VINTF differs','ROM changed:'):
@@ -740,6 +745,7 @@ class KsuTests(unittest.TestCase):
         self.assertEqual(module_path('system/lib64/test.so'),'system/lib64/test.so')
         self.assertEqual(module_path('vendor/lib64/test.so'),'system/vendor/lib64/test.so')
         self.assertEqual(module_path('system_ext/priv-app/Test/Test.apk'),'system/system_ext/priv-app/Test/Test.apk')
+        self.assertEqual(module_path('odm/etc/audio_effects_config.xml'),'system/odm/etc/audio_effects_config.xml')
         with self.assertRaises(PatchError):module_path('vendor/../unsafe')
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp)

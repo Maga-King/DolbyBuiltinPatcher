@@ -5,7 +5,7 @@
 
 模块署名：**科比**。推荐组合：**KSU + MOUNTIFY**。
 
-手机版 0.2.6 预览位于 [`android/`](android/README.md)：通过 root 从当前系统或手机解包 ROM
+手机版 0.2.7 预览位于 [`android/`](android/README.md)：通过 root 从当前系统或手机解包 ROM
 生成 ZIP，也可输入 `/data/DNA/DNA_01` 一类目录，备份后原位内置杜比；无需电脑参与运行。
 公开仓库不附带包含专有资产的 APK。
 
@@ -61,12 +61,13 @@ App 源码目录为 [LunarisDolby](https://github.com/Pong-Development/hardware_
 
 ## 当前模块机制
 
-电脑端源码/本地构建版本为 1.0.5；模块运行时继续使用独立的 0.6.1 测试版编号。
-当前模块版本为 **`0.6.1-meta-repair-preview1`**，`versionCode=613`；电脑生成器为 1.0.5，手机生成器为 0.2.6 测试版。
+电脑生成器为 1.0.6，手机生成器为 0.2.7；当前模块版本为
+**`0.6.2-standard-config-preview1`**，`versionCode=614`。
 电脑端三种来源、手机版两种来源共用同一模块生成器与运行脚本。
+本版变更与验证详见[标准路径配置说明](docs/标准路径配置_1.0.6.md)。
 
 已去掉安装阶段的设备指纹、SDK、架构、原文件哈希及冲突名单限制，开机不再以原 ROM 身份拦截。
-必要的工具/挂载操作、启动顺序、失败回退和安全路径处理保留。去限制不等于跨机型通刷。
+本版进一步移除运行时启动门控，保留必要的早期 VINTF 加载和安全路径处理。去限制不等于跨机型通刷。
 模块直接生成完整杜比相关 `sepolicy.rule`，**不再调用策略编译器**；原生内置流程不变。
 
 1. 恢复首个公开版本 `e09bb23` 的标准 `system/` 单份载荷、挂载前保存/挂载后恢复子挂载流程。
@@ -74,19 +75,26 @@ App 源码目录为 [LunarisDolby](https://github.com/Pong-Development/hardware_
    同步 post-mount 先恢复 VINTF/OPEX 子挂载，再核对并补挂缺失或内容/权限/标签不符的项。
    已有文件单独 bind，新增文件只合并必要父目录；补挂不新增 OverlayFS 文件系统层。
    没有相关元模块挂载或零项正确载荷时停止，不接管整包；复制兜底有内存限额。
-2. 文件、依赖与服务就绪检查通过后，才发布 Codec2/default9 声明并提交音频配置。
+2. 音效 XML、Codec2 XML 与 ODM 配置全部放回标准 `system/` 分区目录，由元模块正常加载。
+   例如 `system/odm/etc/audio_effects_config.xml` 对应 `/odm/etc/audio_effects_config.xml`，
+   `system/vendor/etc/media_codecs_c2_audio.xml` 对应 `/vendor/etc/media_codecs_c2_audio.xml`。
+   不再生成 `late/`、`late.tsv` 或 gate/commit/recover/codec 脚本。
+   early-init 一次性加载完整 VINTF（含 Codec2/default9）；early-boot 准备数据库权限后直接启动三个杜比服务。
+   `repair-ok`、linker 检查、服务注册轮询和指定音频 HAL 名称均不再作为启动条件；数据库准备失败也不拦截启动。
 3. 解码服务不使用 `oneshot`，提供 `default9` 接口启动映射及 `restart_period 3`。
    这是进程退出后的恢复间隔，**不是每三秒检查或重启健康进程**。
-4. 启动准备失败时尝试撤回本模块声明/配置；不强杀或重启 HWS、音频 HAL、mediaserver。
+4. 不再自动撤回声明或音频配置；不强杀或重启 HWS、音频 HAL、mediaserver。
+   NoMount 的 VFS 重定向可能没有传统挂载记录，补挂检查失败不会阻止杜比服务启动。
 5. 开机对 initrc 缓存检查一次，仅不一致时限时刷新一次；没有开机后的常驻轮询。
 6. Action 按钮只读检查本次启动状态，不把上次开机的遗留日志当作成功证据。
 7. 安装同签名 Dolby App 更新，保留系统底包，不清数据；修复数据目录标签以恢复设置持久化。
-   详见[当前方案和冲突测试](docs/元模块补挂验证_20260929.md)；旧版见[历史兼容说明](docs/元模块与自挂载兼容说明.md)。
+   旧版挂载方案与验证记录见[元模块补挂验证](docs/元模块补挂验证_20260929.md)和[历史兼容说明](docs/元模块与自挂载兼容说明.md)。
 8. 刷入时停用 `com.oplus.audio.effectcenter`，仅在确认该用户下原本启用后执行；状态无法确认或包不存在时不改动。卸载模块时只恢复本模块确实停用的实例。
 
-本次 88 项 Python 回归、37 项 Linux 隔离挂载测试、8 项 Android Enforcing 私有命名空间测试通过。
-PLQ110 + Mountify 2.0.3 已验证启动、服务注册及 82/82 项直接挂齐（补挂 0 次）。
-这些结果不代表每种元模块都验证过，也不等于所有播放器实际使用 DAP/杜比解码器。
+旧版曾完成 Python 回归、Linux 隔离挂载和 Android Enforcing 私有命名空间测试，
+以及 PLQ110 + Mountify 2.0.3 的启动、服务注册及 82/82 项挂载验证。
+这些历史结果不能当作本版 NoMount 开机或实际音频播放验证；本版验证范围以 Release 说明为准。
+更新生成器后须重新生成、安装模块并完整重启，已安装的旧模块不会自动改变。
 其他模块晚于补挂再次覆盖、元模块完全失效、原厂子挂载无法恢复时，仍不能保证正常接入。
 
 **DSU 注意：** `/metadata` 可能与主系统共享。DSU 没有管理器或模块目录，不代表没有主系统留下的早期注入。
@@ -115,7 +123,7 @@ su -c 'sh /data/adb/modules/mio_dolby_c17_generated/initrc-cache.sh repair'
   已用旧版修改的解包目录，请先用原记录回退再重新修改，不要直接重复运行；更新工具不会自动修复旧目录。
   此修复不代表已确认解决所有卡一反馈。
 - 原生内置会修改你选择的**解包目录**，不是只生成一个无副作用的报告；先备份并准备恢复手段。
-- 模块需要支持 initrc 注入、同步 post-mount 与正确挂载的 KSU/元模块环境；不支持时拒绝安装或激活。
+- 模块需要支持 initrc 注入、早期 metadata 访问与正确提供文件的 KSU/元模块环境；同步 post-mount 用于独立的子挂载恢复与补挂。
 - 推荐 KSU + MOUNTIFY 不等于所有版本、机型、SELinux 环境都兼容。
 - 部分旧 SukiSU 用户空间没有 `ksud initrc` 接口。安装器不会跳过这一启动依赖；
   更新挂载元模块或仅更换管理器 APK，不保证补齐接口。
@@ -142,7 +150,7 @@ su -c 'sh /data/adb/modules/mio_dolby_c17_generated/initrc-cache.sh repair'
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
-python -m unittest tests -v
+python -m unittest tests test_mobile test_module_export -v
 python app.py
 ```
 
@@ -168,7 +176,7 @@ core.py / discovery.py   ROM 布局识别、文件合并和变更记录
 adb_mode.py             ADB 快照、事务、回退
 ksu_module.py            模块生成入口
 ksu_boot.py              模块启动材料导出与 RC 校验
-assets/ksu/boot/         当前早期启动模板、门禁和缓存检查
+assets/ksu/boot/         早期启动模板、数据准备和缓存检查
 assets/upstream-lunaris/ LunarisDolby SELinux 来源快照
 native/                 Windows secilc 移植兼容层和构建脚本
 third_party/selinux/     SELinuxProject 相关源码与原许可证
