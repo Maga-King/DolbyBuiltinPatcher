@@ -29,4 +29,9 @@ else
     ui_print 'App 暂未安装成功；开机完成后仅补试一次，详见 .runtime/app-install.log。'
 fi
 ui_print '无需给杜比 App 授予 Root；不要为了修它关闭全局安全或隐藏设置。'
+if /system/bin/sh "$MODPATH/freeze-audioeffectcenter.sh"; then
+    ui_print 'OPLUS 音效中心已按需停用；卸载模块时会恢复原先启用状态。'
+else
+    ui_print 'OPLUS 音效中心暂未停用；开机完成后模块会有界重试。'
+fi
 ui_print '本包不按设备指纹或 SDK 拒装，但刷入成功不等于机型兼容。'

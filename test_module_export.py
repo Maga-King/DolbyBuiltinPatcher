@@ -67,6 +67,10 @@ class ModuleExportTests(unittest.TestCase):
                     self.assertEqual(mounts['/'+target],source)
                     self.assertEqual(labels[source],['0644','u:object_r:vendor_configs_file:s0'])
                 self.assertFalse(any(n.startswith('late/') for n in names))
+                self.assertIn('. "$MODPATH/install-early.sh"',archive.read('customize.sh').decode())
+                self.assertIn('/system/bin/sh "$MODPATH/freeze-audioeffectcenter.sh"',
+                              archive.read('install-early.sh').decode())
+                self.assertIn('com.oplus.audio.effectcenter',archive.read('freeze-audioeffectcenter.sh').decode())
                 self.assertTrue(names.isdisjoint({'late.tsv','gate.sh','commit.sh','recover.sh',
                                                   'codec.sh','codec-target','codec-manifest.xml','mode'}))
                 vintf=[row.split('\t') for row in archive.read('early/vintf.tsv').decode().splitlines()]

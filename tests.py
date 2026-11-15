@@ -148,6 +148,99 @@ class DiscoveryTests(unittest.TestCase):
         self.put('vendor/lib64/hw/libaudioeffecthal.qti.so',b'not-arm64')
         with self.assertRaises(PatchError):discover(self.rom)
 
+    def new_layout(self,directory='vendor/etc',count=2,href='media_codecs_c2_audio.xml'):
+        self.put(directory+'/software.xml',b'<Included><Decoders><MediaCodec name="c2.android.aac.decoder" type="audio/mp4a-latm"/></Decoders></Included>')
+        for index in range(count):
+            self.put(f'{directory}/media_codecs_board{index}.xml',
+                     ('<MediaCodecs><Include href="software.xml"/><Include href="'+href+'"/>'
+                      '<Decoders><MediaCodec name="c2.qti.avc.decoder" type="video/avc"/></Decoders>'
+                      '<Encoders><MediaCodec name="c2.qti.avc.encoder" type="video/avc"/></Encoders></MediaCodecs>').encode())
+
+    def test_new_missing_c2_audio_leaf_is_planned_once(self):
+        from discovery import discover
+        self.new_layout(count=7)
+        info=discover(self.rom)
+        target='vendor/etc/media_codecs_c2_audio.xml'
+        self.assertEqual(info['codecs'],[target])
+        self.assertEqual(info['codec_created_files'],[target])
+        self.assertEqual(len(info['codec_entry_coverage']),7)
+        self.assertEqual(set(info['codec_entry_profiles'].values()),{'dolby-only-missing-c2-audio'})
+        self.assertFalse(self.rom.path(target).exists(),'Discovery must not mutate the ROM')
+        patched=merge_codecs(b'<Included><Decoders/></Included>',(ASSETS/'codecs-reference.xml').read_bytes())
+        nodes=ET.fromstring(patched).findall('./Decoders/MediaCodec')
+        self.assertEqual({n.get('name') for n in nodes},{'c2.dolby.ac4.decoder','c2.dolby.eac3.decoder'})
+        self.assertTrue(all(n.get('name').startswith('c2.dolby.') for n in nodes))
+        self.put(target,patched)
+        again=discover(self.rom)
+        self.assertEqual(again['codecs'],info['codecs'])
+        self.assertEqual(again['codec_created_files'],[])
+        self.assertEqual(patched,merge_codecs(patched,(ASSETS/'codecs-reference.xml').read_bytes()))
+
+    def test_new_and_old_disjoint_trees_both_supported(self):
+        from discovery import discover
+        self.new_layout('vendor/etc/newchip')
+        self.put('vendor/etc/oldchip/media_codecs.xml',self.audio)
+        info=discover(self.rom)
+        self.assertEqual(info['codecs'],['vendor/etc/newchip/media_codecs_c2_audio.xml',
+                                         'vendor/etc/oldchip/media_codecs.xml'])
+        self.assertEqual(set(info['codec_entry_profiles'].values()),{'vendor-c2-audio','dolby-only-missing-c2-audio'})
+
+    def test_old_root_leaf_does_not_mask_new_sku_local_missing_file(self):
+        from discovery import discover
+        self.new_layout('vendor/etc/newchip',count=1)
+        self.put('vendor/etc/media_codecs_c2_audio.xml',self.audio)
+        self.put('vendor/etc/media_codecs.xml',b'<MediaCodecs><Include href="media_codecs_c2_audio.xml"/></MediaCodecs>')
+        info=discover(self.rom)
+        self.assertEqual(info['codec_created_files'],['vendor/etc/newchip/media_codecs_c2_audio.xml'])
+        self.assertEqual(info['codec_entry_coverage']['vendor/etc/media_codecs.xml'],'vendor/etc/media_codecs_c2_audio.xml')
+        self.assertEqual(info['codec_entry_coverage']['vendor/etc/newchip/media_codecs_board0.xml'],
+                         'vendor/etc/newchip/media_codecs_c2_audio.xml')
+
+    def test_new_layout_does_not_hide_other_missing_include(self):
+        from discovery import discover
+        self.new_layout()
+        path=self.rom.path('vendor/etc/media_codecs_board0.xml')
+        self.put('vendor/etc/media_codecs_board0.xml',path.read_bytes().replace(b'</MediaCodecs>',b'<Include href="unknown.xml"/></MediaCodecs>'))
+        with self.assertRaisesRegex(PatchError,'unknown.xml'):discover(self.rom)
+
+    def test_new_layout_duplicate_path_rejected(self):
+        from discovery import discover
+        self.new_layout(count=1)
+        path=self.rom.path('vendor/etc/media_codecs_board0.xml')
+        include=b'<Include href="media_codecs_c2_audio.xml"/>'
+        self.put('vendor/etc/media_codecs_board0.xml',path.read_bytes().replace(include,include+include))
+        with self.assertRaisesRegex(PatchError,'重复包含'):discover(self.rom)
+
+    def test_new_layout_does_not_guess_unknown_leaf(self):
+        from discovery import discover
+        self.new_layout(href='new_unknown_audio.xml')
+        with self.assertRaisesRegex(PatchError,'不符合'):discover(self.rom)
+
+    def test_new_layout_requires_real_video_and_software_audio(self):
+        from discovery import discover
+        self.new_layout(count=1)
+        path=self.rom.path('vendor/etc/media_codecs_board0.xml')
+        original=path.read_bytes()
+        self.put('vendor/etc/media_codecs_board0.xml',original.replace(b'c2.qti.avc.decoder',b'other.decoder'))
+        with self.assertRaisesRegex(PatchError,'不符合'):discover(self.rom)
+        self.put('vendor/etc/media_codecs_board0.xml',original)
+        self.put('vendor/etc/software.xml',b'<Included><Decoders/></Included>')
+        with self.assertRaisesRegex(PatchError,'不符合'):discover(self.rom)
+
+    def test_new_layout_does_not_overwrite_non_codec_file(self):
+        from discovery import discover
+        self.new_layout()
+        self.put('vendor/etc/media_codecs_c2_audio.xml',b'<unknown/>')
+        with self.assertRaises(PatchError):discover(self.rom)
+
+    def test_new_layout_existing_dolby_elsewhere_never_duplicates(self):
+        from discovery import discover
+        self.new_layout()
+        self.put('vendor/etc/elsewhere.xml',b'<Included><Decoders><MediaCodec name="c2.dolby.eac3.decoder" type="audio/eac3"/></Decoders></Included>')
+        path=self.rom.path('vendor/etc/media_codecs_board0.xml')
+        self.put('vendor/etc/media_codecs_board0.xml',path.read_bytes().replace(b'</MediaCodecs>',b'<Include href="elsewhere.xml"/></MediaCodecs>'))
+        with self.assertRaisesRegex(PatchError,'杜比|冲突'):discover(self.rom)
+
 class PackingTests(unittest.TestCase):
     def native_fixture(self,root,slot=False):
         from core import Build,Rom,write

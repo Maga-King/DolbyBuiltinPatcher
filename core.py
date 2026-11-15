@@ -18,7 +18,7 @@ import zipfile
 import xml.etree.ElementTree as ET
 from pathlib import Path, PurePosixPath
 
-VERSION = '1.0.6'
+VERSION = '1.0.7'
 ASSETS = Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parent)) / 'assets'
 BEGIN = '; BEGIN MIO DOLBY NATIVE v1'
 END = '; END MIO DOLBY NATIVE v1'
@@ -331,8 +331,15 @@ class Build:
             self.log('音效配置：'+name)
             self.stage(name,merge_effects(self.get(name).read_bytes(),(ASSETS/'effects-reference.xml').read_bytes()))
         for name in config['codecs']:
-            self.log('解码器配置：'+name)
-            self.stage(name,merge_codecs(self.get(name).read_bytes(),(ASSETS/'codecs-reference.xml').read_bytes()))
+            if name in config.get('codec_created_files',[]):
+                if self.get(name).exists():
+                    raise PatchError('待补齐的 Codec 文件已出现，需重新分析：'+name)
+                self.log('新版解码器配置：补齐缺失 Include，仅声明杜比，不恢复原厂已移除组件：'+name)
+                original=b'<Included><Decoders/></Included>'
+            else:
+                self.log('原有解码器配置：保留并增量合并：'+name)
+                original=self.get(name).read_bytes()
+            self.stage(name,merge_codecs(original,(ASSETS/'codecs-reference.xml').read_bytes()))
         # Fail on another fragment declaring the same service, instead of silently adding duplicates.
         framework_nodes={}
         for part in ('vendor','odm','system','system_ext'):

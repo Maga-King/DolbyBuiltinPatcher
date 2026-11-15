@@ -3,10 +3,11 @@
 import re
 from core import ASSETS, PatchError, read
 
-RUNTIME_VERSION='0.6.2-standard-config-preview1'
+RUNTIME_VERSION='0.6.3-codec-layout-preview1'
 BIND_KEYS=('ro.system.build.fingerprint','ro.vendor.build.fingerprint','ro.board.platform')
 
-MODULE_README='''KSU 标准路径音频配置（电脑 1.0.6 / Android 0.2.7 测试版）
+MODULE_README='''KSU 标准路径音频配置（电脑 1.0.7 / Android 0.2.8 测试版）
+按输入 XML 自动识别新旧 Codec 配置；新版仅补齐已引用的缺失音频 XML，内容只含杜比解码器。
 音效 XML、Codec2 XML 与 ODM 配置和库文件一起放在标准 system/ 分区目录中，由元模块加载。
 不再生成 late/、late.tsv，也不再通过 gate/commit/recover 延迟挂载音频配置。
 开机 early-init 一次性加载完整 VINTF（含 Codec2/default9），early-boot 直接启动杜比服务。

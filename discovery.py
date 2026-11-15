@@ -3,6 +3,15 @@ from pathlib import PurePosixPath
 import re
 from core import PatchError, xml_parse
 
+
+def include_candidates(name,href):
+    relative=str(PurePosixPath(name).parent/href)
+    # A local missing C2 audio leaf must not be hidden by an old SKU's root
+    # copy. Android resolves Include relative to the current XML directory.
+    if href=='media_codecs_c2_audio.xml':return [relative]
+    return list(dict.fromkeys([relative,name.split('/')[0]+'/etc/'+href]))
+
+
 def discover(rom):
     hals=[n for n in ('vendor/lib64/hw/libaudioeffecthal.qti.so',
                       'vendor/lib64/libaudioeffecthal.qti.so') if rom.path(n).is_file()]
@@ -44,7 +53,7 @@ def discover(rom):
             href=node.get('href','')
             if not href or PurePosixPath(href).is_absolute() or '..' in PurePosixPath(href).parts:
                 raise PatchError(f'无法解析的 Codec Include：{name} -> {href}')
-            for candidate in dict.fromkeys([str(PurePosixPath(name).parent/href),name.split('/')[0]+'/etc/'+href]):
+            for candidate in include_candidates(name,href):
                 if candidate in docs:break
                 path=rom.path(candidate)
                 if not path.is_file():continue
@@ -63,7 +72,7 @@ def discover(rom):
             href=node.get('href','')
             if not href or PurePosixPath(href).is_absolute() or '..' in PurePosixPath(href).parts:
                 raise PatchError(f'无法解析的 Codec Include：{name} -> {href}')
-            candidates=[str(PurePosixPath(name).parent/href),name.split('/')[0]+'/etc/'+href]
+            candidates=include_candidates(name,href)
             found=next((n for n in candidates if n in docs),None)
             if not found:
                 unresolved.append({'from':name,'href':href});continue
@@ -81,11 +90,49 @@ def discover(rom):
             if n.get('type','').startswith('audio/') or any(t.get('name','').startswith('audio/') for t in n.findall('Type')):
                 return True
         return False
+    # New Qualcomm layouts may remove the QTI C2 audio service and its XML,
+    # while retaining the Include in each video entry. Repair only that proven
+    # dangling edge. Never copy old QTI components or fall back on any error.
+    created={}
+    for item in unresolved:
+        name,href=item['from'],item['href']
+        root=docs[name]
+        if href!='media_codecs_c2_audio.xml' or root.tag!='MediaCodecs':continue
+        video=any(n.get('name','').startswith('c2.qti.') and
+                  (n.get('type','').startswith('video/') or
+                   any(t.get('name','').startswith('video/') for t in n.findall('Type')))
+                  for n in root.findall('./Decoders/MediaCodec'))
+        audio=any(n.get('name','').startswith(('c2.android.','OMX.google.')) and
+                  (n.get('type','').startswith('audio/') or
+                   any(t.get('name','').startswith('audio/') for t in n.findall('Type')))
+                  for child in reach[name] for n in docs[child].findall('./Decoders/MediaCodec'))
+        if not video or not audio:continue
+        # Android's Include parser resolves relative to the including file.
+        target=str(PurePosixPath(name).parent/href)
+        path=rom.path(target)
+        if path.exists() or path.is_symlink():
+            raise PatchError('缺失 Codec 叶节点的目标不是可新建文件：'+target)
+        created.setdefault(target,[]).append(name)
+    if created:
+        for target in created:
+            docs[target]=xml_parse(b'<Included><Decoders/></Included>')
+            edges[target]=[]
+        remaining=[]
+        for item in unresolved:
+            target=str(PurePosixPath(item['from']).parent/item['href'])
+            if target in created:
+                edges[item['from']].append(target)
+            else:remaining.append(item)
+        unresolved=remaining
+        reach={n:reachable(n) for n in docs}
     candidates={n for n,r in docs.items() if c2_audio(r)}
+    candidates.update(created)
     incoming={n for values in edges.values() for n in values}
     # Each non-included entry tree is a possible boot-selected platform configuration.
     roots=sorted(n for n in docs if n not in incoming and any(c in reach[n] for c in candidates))
-    if not roots:raise PatchError('没有找到包含厂商 Codec2 音频解码器的配置引用链')
+    if not roots:
+        raise PatchError('没有找到包含厂商 Codec2 音频解码器的配置引用链；'
+                         '也不符合“高通视频入口 + Google 音频 + 缺失 C2 音频 Include”的新版结构，未套用补丁')
     selected=set();coverage={}
     for root in sorted(roots,key=lambda n:(sum(c in reach[n] for c in candidates),n)):
         present=selected & reach[root]
@@ -97,9 +144,18 @@ def discover(rom):
         if not options:raise PatchError(f'无法为 Codec 引用链选择无重复的插入位置：{root}')
         best=max(sorted(options),key=lambda c:(sum(c in reach[r] for r in roots),not edges[c],len(c)))
         selected.add(best)
+    # Every repaired Include must receive a real file, and only the selected
+    # insertion sites may contain Dolby entries. Ambiguous mixed trees fail.
+    if set(created)-selected:
+        raise PatchError('新版 Codec 叶节点与已有插入点冲突：'+', '.join(sorted(set(created)-selected)))
     for root in roots:
         matched=sorted(selected & reach[root])
         if len(matched)!=1:raise PatchError(f'Codec 引用链覆盖异常：{root}')
+        existing_dolby={n for n in reach[root] if any(
+            c.get('name','').startswith('c2.dolby.') for c in docs[n].findall('./Decoders/MediaCodec'))}
+        if existing_dolby-set(matched):
+            raise PatchError('Codec 引用链其他位置已有杜比，拒绝重复添加：'+root+' -> '+
+                             ', '.join(sorted(existing_dolby-set(matched))))
         # A DAG may include the same selected leaf twice; set reachability alone hides this.
         def occurrences(n,target):return int(n==target)+sum(occurrences(x,target) for x in edges[n])
         if occurrences(root,matched[0])!=1:raise PatchError(f'原配置重复包含音频叶节点：{root} -> {matched[0]}')
@@ -107,6 +163,12 @@ def discover(rom):
     for item in unresolved:
         if any(item['from'] in reach[r] for r in roots):
             raise PatchError(f'Codec 引用链缺件，不能确认是否重复注册：{item["from"]} -> {item["href"]}')
+    profiles={root:('dolby-only-missing-c2-audio' if leaf in created else 'vendor-c2-audio')
+              for root,leaf in coverage.items()}
     return dict(effect_hals=hals,effect_filenames=sorted(names),effects=effects,
                 codecs=sorted(selected),codec_entry_coverage=coverage,
+                codec_entry_profiles=profiles,codec_created_files=sorted(created),
+                codec_repairs=[dict(path=n,reason='dangling-qti-c2-audio-include',
+                                    referenced_by=sorted(set(created[n])),contents='c2.dolby.* only')
+                               for n in sorted(created)],
                 unresolved_unrelated_includes=unresolved)
