@@ -3,30 +3,8 @@
 import re
 from core import ASSETS, PatchError, read
 
-RUNTIME_VERSION='0.6.3-codec-layout-preview1'
+RUNTIME_VERSION='0.6.6-opex'
 BIND_KEYS=('ro.system.build.fingerprint','ro.vendor.build.fingerprint','ro.board.platform')
-
-MODULE_README='''KSU 标准路径音频配置（电脑 1.0.7 / Android 0.2.8 测试版）
-按输入 XML 自动识别新旧 Codec 配置；新版仅补齐已引用的缺失音频 XML，内容只含杜比解码器。
-音效 XML、Codec2 XML 与 ODM 配置和库文件一起放在标准 system/ 分区目录中，由元模块加载。
-不再生成 late/、late.tsv，也不再通过 gate/commit/recover 延迟挂载音频配置。
-开机 early-init 一次性加载完整 VINTF（含 Codec2/default9），early-boot 直接启动杜比服务。
-启动不依赖 repair-ok、音频服务名、linker 检查或服务注册轮询；补挂失败不会阻止服务启动。
-保留启动前数据库权限修复；修复失败会记录日志，init 仍继续启动服务，不删除数据库或用户预设。
-保留元模块挂载前保存/挂载后恢复子挂载，以及有界缺失项补挂；不生成 files/ 或 self-mount.sh。
-NoMount 的 VFS 重定向不一定产生挂载记录，repair.log 失败不再表示杜比服务被门控拦截。
-没有相关元模块挂载时不自动整包自挂载；元模块仍需正确提供全部文件。
-保留 Codec2 default9 接口映射与退出后 3 秒恢复间隔，不新增常驻轮询，不重启系统音频服务。
-需要支持 initrc 注入的 KSU、开机早期可读的 /metadata 和可用元模块。
-切换元模块：卸载杜比模块 → 完整重启 → 重新安装；不能只热重启框架。
-保留同签名 App 更新安装、数据标签修复，以及 OPLUS 音效中心按需停用和卸载恢复。
-更新生成器后须重新生成、安装模块并完整重启；旧模块不会被生成器自动修改。
-仅修改模块生成流程，ROM 原生内置事务、标签及策略编译流程保持独立。
-本版不自动撤回音频配置；文件缺失或服务失败需通过 Action 诊断，必要时禁用模块并重启。
-共享 metadata 的 DSU 仍可能读到主系统早期注入；测试已内置杜比的 ROM 前须解除旧模块缓存。
-日志：preserve.log、.runtime/repair.log、.runtime/prepare.log；Action 为单次中文诊断。
-此前 PLQ110 + Mountify 的开机结果属于旧版，不代表本版已完成 NoMount 开机或实际播放验证。
-'''
 
 
 def validate_codec_recovery(rc):

@@ -19,16 +19,24 @@ class RepairTests(unittest.TestCase):
     def case(self, *, meta='partial', new_directory=False, bad_mode=False, fail_readonly=False,
              conflict=False, layers=1, bind_failure=False, late_audio=False, disabled=False,
              repeat=False, symlink_conflict=False, relocate=False, preserve_conflict=False,
-             late_foreign=False):
+             late_foreign=False, opex_hw=False, foreign_after_merge=False):
         with tempfile.TemporaryDirectory(prefix='dolby-meta4-') as folder:
             base=Path(folder)
             module=base/'module'; module.mkdir()
             root=base/'vendor/lib64'; root.mkdir(parents=True)
-            child=root/'opex'; child.mkdir()
+            child=root/('hw' if opex_hw else 'opex'); child.mkdir()
             live=base/'live'; live.mkdir(); (live/'oem.so').write_text('updated-oem')
             (child/'oem.so').write_text('base-oem')
+            if opex_hw:
+                (live/'nested').mkdir()
+                (live/'hw-link').symlink_to('oem.so')
+                (child/'nested').mkdir()
+                (root.parent/'lib64-sibling').mkdir()
+                nested=base/'nested'; nested.mkdir(); (nested/'keep').write_text('nested-oem')
+                untouched=base/'untouched'; untouched.mkdir(); (untouched/'marker').write_text('vendor-sibling')
             public=module/'system/vendor/lib64'; public.mkdir(parents=True)
-            files=['one.so','newdir/two.so' if new_directory else 'two.so']
+            files=['one.so','hw/vendor.dolby.hardware.dms@2.0-service' if opex_hw else
+                   'newdir/two.so' if new_directory else 'two.so']
             for name in files:
                 p=public/name; p.parent.mkdir(parents=True,exist_ok=True); p.write_text('dolby-'+name)
                 if '/' not in name: (root/name).write_text('old-'+name)
@@ -64,7 +72,7 @@ class RepairTests(unittest.TestCase):
                 fi
                 case "$*" in *remount,bind,ro*)
                     for last in "$@"; do :; done
-                    if [ "${FAIL_READONLY:-0}" = 1 ] && [ "$last" = "$ROOT/two.so" ]; then return 1; fi;;
+                    if [ "${FAIL_READONLY:-0}" = 1 ] && { [ "$last" = "$ROOT/two.so" ] || [ "$last" = "$CHILD" ]; }; then return 1; fi;;
                 esac
                 command mount "$@"
             }''')
@@ -79,10 +87,19 @@ class RepairTests(unittest.TestCase):
                 CONFLICT=str(int(conflict)),LAYERS=str(layers),FAIL_STAGE_BIND=str(int(bind_failure)),
                 AUDIO_STATE='running' if late_audio else 'stopped',REPEAT=str(int(repeat)),
                 FOREIGN=str(conflict_file),PRESERVE_CONFLICT=str(int(preserve_conflict)),
-                LATE_FOREIGN=str(int(late_foreign)),
+                LATE_FOREIGN=str(int(late_foreign)), OPEX_HW=str(int(opex_hw)),
+                FOREIGN_AFTER_MERGE=str(int(foreign_after_merge)), DOLBY_NAME=files[1],
                 FAIL_READONLY='1' if fail_readonly else '0',NEW_DIRECTORY='1' if new_directory else '0',BAD_MODE='1' if bad_mode else '0')
             script='''set -eu
-                mount --bind "$LIVE" "$CHILD"
+                if [ "$OPEX_HW" = 1 ]; then
+                    mount -t overlay -o "lowerdir=$LIVE:$CHILD,ro" overlay "$CHILD"
+                    mount --bind "${ROOT%/vendor/lib64}/nested" "$CHILD/nested"
+                    [ "$(cat "$CHILD/nested/keep")" = nested-oem ]
+                    stat -c '%d:%i' "$CHILD" > "$M/opex-inode"
+                    mount --bind "${ROOT%/vendor/lib64}/untouched" "${ROOT%/lib64}/lib64-sibling"
+                else
+                    mount --bind "$LIVE" "$CHILD"
+                fi
                 if [ "$PRESERVE_CONFLICT" = 1 ]; then mount --bind "$FOREIGN" "$ROOT/two.so"; fi
                 sh "$M/preserve.sh" save
                 if [ "$META" != none ]; then
@@ -109,7 +126,14 @@ class RepairTests(unittest.TestCase):
                         [ "$(cat "$ROOT/two.so")" = foreign-module ]
                     fi
                     if [ "$FAIL_READONLY" = 1 ]; then
-                        [ "$(cat "$ROOT/two.so")" = old-two.so ]
+                        if [ "$OPEX_HW" = 1 ]; then
+                            [ ! -e "$ROOT/$DOLBY_NAME" ]
+                            [ "$(cat "$CHILD/nested/keep")" = nested-oem ]
+                            [ "$(stat -c '%d:%i' "$CHILD")" = "$(cat "$M/opex-inode")" ]
+                            [ ! -e "$REPAIR_WORK" ]
+                        else
+                            [ "$(cat "$ROOT/two.so")" = old-two.so ]
+                        fi
                         awk -v p="$ROOT" '$5==p && / - overlay / {ok=1} END {exit !ok}' /proc/self/mountinfo
                     fi
                 else
@@ -119,7 +143,14 @@ class RepairTests(unittest.TestCase):
                     cmp "$M/.runtime/repair-ok" /proc/sys/kernel/random/boot_id
                     [ "$(cat "$CHILD/oem.so")" = updated-oem ]
                     cmp "$ROOT/one.so" "$M/system/vendor/lib64/one.so"
-                    if [ "$NEW_DIRECTORY" = 1 ]; then
+                    if [ "$OPEX_HW" = 1 ]; then
+                        cmp "$ROOT/$DOLBY_NAME" "$M/system/vendor/lib64/$DOLBY_NAME"
+                        [ "$(cat "$CHILD/nested/keep")" = nested-oem ]
+                        [ "$(readlink "$CHILD/hw-link")" = oem.so ]
+                        [ "$(cat "${ROOT%/lib64}/lib64-sibling/marker")" = vendor-sibling ]
+                        [ "$(stat -c '%d:%i' "$CHILD")" != "$(cat "$M/opex-inode")" ]
+                        awk -F '\t' -v p="$CHILD" 'NR==1 && $1=="D" && $2==p {found=1} END {exit !(found && NR==1)}' "$M/.runtime/repair-plan.tsv"
+                    elif [ "$NEW_DIRECTORY" = 1 ]; then
                         cmp "$ROOT/newdir/two.so" "$M/system/vendor/lib64/newdir/two.so"
                     else
                         cmp "$ROOT/two.so" "$M/system/vendor/lib64/two.so"
@@ -135,6 +166,12 @@ class RepairTests(unittest.TestCase):
                         cp /proc/self/mountinfo "$M/before-repeat"
                         sh "$M/repair-mounts.sh" run
                         cmp "$M/before-repeat" /proc/self/mountinfo
+                    fi
+                    if [ "$FOREIGN_AFTER_MERGE" = 1 ]; then
+                        mount --bind "$LIVE" "$CHILD"
+                        ! sh "$M/repair-mounts.sh" run
+                        [ ! -e "$M/.runtime/repair-ok" ]
+                        [ "$(stat -c '%d:%i' "$CHILD")" = "$(stat -c '%d:%i' "$LIVE")" ]
                     fi
                     if [ "$LATE_FOREIGN" = 1 ]; then
                         mount --bind "$FOREIGN" "$ROOT/two.so"
@@ -152,6 +189,12 @@ class RepairTests(unittest.TestCase):
     def test_all_provided_no_extra_mounts(self): self.case(meta='all')
     def test_partial_file_repair(self): self.case()
     def test_missing_directory_repair_preserves_oem_child(self): self.case(new_directory=True)
+    def test_merge_exact_saved_opex_root(self):
+        self.case(opex_hw=True, repeat=True)
+    def test_opex_merge_readonly_failure_restores_original(self):
+        self.case(opex_hw=True, fail_readonly=True)
+    def test_replaced_opex_publication_invalidates_success(self):
+        self.case(opex_hw=True, foreign_after_merge=True)
     def test_matching_content_wrong_mode_is_repaired(self): self.case(meta='all',bad_mode=True)
     def test_absent_metamodule_does_not_become_self_mount(self): self.case(meta='none')
     def test_empty_metamodule_does_not_become_self_mount(self): self.case(meta='empty')

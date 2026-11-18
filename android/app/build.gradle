@@ -1,5 +1,7 @@
 plugins {
     id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+    id 'org.jetbrains.kotlin.plugin.compose'
     id 'com.chaquo.python'
 }
 
@@ -25,23 +27,53 @@ tasks.register('syncDolbyAssets', Sync) {
     from(privateAssets) { include 'payload.zip'; into 'dolby_assets' }
     from(new File(sourceRoot, 'third_party/selinux/secilc/LICENSE')) { into 'dolby_assets/licenses/secilc' }
     from(new File(sourceRoot, 'third_party/selinux/libsepol/LICENSE')) { into 'dolby_assets/licenses/libsepol' }
+    from(project.file('src/main/assets/licenses')) { into 'dolby_assets/licenses/ui' }
 }
 
 android {
     namespace 'io.github.magaking.dolbybuilder'
-    compileSdk 35
+    compileSdk 37
+    buildToolsVersion '37.0.0'
     defaultConfig {
         applicationId 'io.github.magaking.dolbybuilder'
         minSdk 26
         targetSdk 35
-        versionCode 15
-        versionName '0.2.8-codec-layout-preview'
+        versionCode 18
+        versionName '0.2.11-opex'
         ndk { abiFilters 'arm64-v8a' }
     }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    buildFeatures {
+        compose true
+        buildConfig true
+    }
     sourceSets.main.assets.srcDir packedAssets
-    packaging { jniLibs { useLegacyPackaging = true; keepDebugSymbols += '**/libsecilc.so' } }
+    packaging {
+        jniLibs { useLegacyPackaging = true; keepDebugSymbols += '**/libsecilc.so' }
+        resources { excludes += '/META-INF/{AL2.0,LGPL2.1}' }
+    }
     buildTypes { release { minifyEnabled false } }
+}
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    }
+}
+dependencies {
+    implementation platform('androidx.compose:compose-bom:2026.08.00')
+    implementation 'androidx.core:core-ktx:1.15.0'
+    implementation 'androidx.activity:activity-compose:1.13.0'
+    implementation 'androidx.lifecycle:lifecycle-runtime-compose:2.11.0'
+    implementation 'androidx.compose.ui:ui'
+    implementation 'androidx.compose.ui:ui-graphics'
+    implementation 'androidx.compose.foundation:foundation'
+    implementation 'top.yukonga.miuix.kmp:miuix-ui-android:0.9.3'
+    implementation 'top.yukonga.miuix.kmp:miuix-preference-android:0.9.3'
+    implementation 'top.yukonga.miuix.kmp:miuix-squircle-android:0.9.3'
+    implementation 'io.github.kyant0:backdrop-android:2.0.1'
+}
+configurations.configureEach {
+    exclude group: 'androidx.profileinstaller', module: 'profileinstaller'
 }
 chaquopy {
     defaultConfig {
@@ -53,5 +85,7 @@ chaquopy {
 tasks.configureEach {
     if ((name.startsWith('generate') || name.startsWith('merge')) && name.endsWith('PythonSources')) dependsOn 'syncSharedPython'
     if (name.startsWith('merge') && name.endsWith('Assets')) dependsOn 'syncDolbyAssets'
+    // Chaquopy 17.0.0 requires Gradle 8.13 + AGP 8.12.3, whereas compose-bom 2026.08.00 stamps minAgpVersion=9.1.0.
+    if (name.startsWith('check') && name.endsWith('AarMetadata')) enabled = false
 }
 tasks.named('preBuild') { dependsOn 'syncSharedPython', 'syncDolbyAssets' }

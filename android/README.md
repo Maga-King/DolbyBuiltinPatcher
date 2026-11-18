@@ -1,4 +1,4 @@
-# 手机版 0.2.8（新旧 Codec 配置兼容测试版）
+# 手机版 0.2.11（OPEX 补挂预览）
 
 本版模块生成：以首个公开版本 `e09bb23` 的标准 `system/` 载荷及
 挂载前保存/挂载后恢复子挂载流程为基础，追加有界的缺失项补挂。不再生成 `files/`
@@ -16,7 +16,7 @@ VINTF 在 early-init 完整加载，early-boot 准备数据库后由 init 直接
 
 刷入模块时会尝试停用 `com.oplus.audio.effectcenter`，仅当确认 user 0 下原本启用才会停用并记录；系统尚未准备好时由开机完成后的单次流程重试。卸载模块仅恢复本模块实际停用的包，原本已停用或不存在时不改动。
 
-科比 · 预览版 0.2.8 · 基于 LunarisDolby 配套资产，Java + Chaquopy 调用与电脑端相同的补丁引擎。
+科比 · 预览版 0.2.11 · 基于 LunarisDolby 配套资产，Compose + Chaquopy 调用与电脑端相同的补丁引擎。
 ARM64，界面最低 Android 8；面向已支持的 ColorOS 17 音频结构，不是任意手机通用移植器。
 
 ## 三种操作
@@ -76,7 +76,7 @@ ARM64，界面最低 Android 8；面向已支持的 ColorOS 17 音频结构，�
 
 ## 构建
 
-JDK 17、Gradle 8.13、Android SDK 35、Python 3.12。ROM 内置另需 Android NDK 和构建期 flex。
+JDK 17、Gradle 8.13、Android SDK 37、Python 3.12。ROM 内置另需 Android NDK 和构建期 flex。
 Windows 可使用 WSL 的 flex，手机运行时不需要 WSL、ADB、电脑或 Windows 编译器。
 
 在仓库根目录运行：

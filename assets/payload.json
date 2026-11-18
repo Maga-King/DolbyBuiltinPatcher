@@ -356,7 +356,7 @@
     "Owner": "root:root",
     "Mode": "0644",
     "SELinux": "u:object_r:system_file:s0",
-    "Bytes": "54237498",
+    "Bytes": "29773971",
     "canonical": "system_ext/priv-app/LunarisDolby/LunarisDolby.apk"
   },
   {

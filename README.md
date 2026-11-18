@@ -5,7 +5,7 @@
 
 模块署名：**科比**。推荐组合：**KSU + MOUNTIFY**。
 
-手机版 0.2.8 预览位于 [`android/`](android/README.md)：通过 root 从当前系统或手机解包 ROM
+手机版 0.2.11 预览位于 [`android/`](android/README.md)：通过 root 从当前系统或手机解包 ROM
 生成 ZIP，也可输入 `/data/DNA/DNA_01` 一类目录，备份后原位内置杜比；无需电脑参与运行。
 公开仓库不附带包含专有资产的 APK。
 
@@ -61,8 +61,8 @@ App 源码目录为 [LunarisDolby](https://github.com/Pong-Development/hardware_
 
 ## 当前模块机制
 
-电脑生成器为 1.0.7，手机生成器为 0.2.8；当前模块版本为
-**`0.6.3-codec-layout-preview1`**，`versionCode=615`。
+最新已打包的电脑生成器为 1.0.7。手机版 0.2.11 和当前源码生成的模块版本为
+**`0.6.6-opex`**，`versionCode=618`。
 电脑端三种来源、手机版两种来源共用同一模块生成器与运行脚本。
 本版新增按引用链识别新旧 Codec 音频布局，内置与模块共用同一发现/合并实现。
 旧包保留原厂音频节点；新版仅在确认高通视频入口、Google 音频及缺失 C2 音频 Include 后，
@@ -78,6 +78,7 @@ App 源码目录为 [LunarisDolby](https://github.com/Pong-Development/hardware_
    不生成 `files/` 或 `self-mount.sh`，正常安装不设置 `skip_mount` / `skip_mountify`。
    同步 post-mount 先恢复 VINTF/OPEX 子挂载，再核对并补挂缺失或内容/权限/标签不符的项。
    已有文件单独 bind，新增文件只合并必要父目录；补挂不新增 OverlayFS 文件系统层。
+   OPEX 覆盖 `/vendor/bin/hw` 时可对该目录发布只读合并层。
    没有相关元模块挂载或零项正确载荷时停止，不接管整包；复制兜底有内存限额。
 2. 音效 XML、Codec2 XML 与 ODM 配置全部放回标准 `system/` 分区目录，由元模块正常加载。
    例如 `system/odm/etc/audio_effects_config.xml` 对应 `/odm/etc/audio_effects_config.xml`，

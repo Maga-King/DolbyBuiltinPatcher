@@ -1,7 +1,46 @@
 #!/system/bin/sh
 # Dolby-only merge engine. No foreign module discovery, VFS controls or service control.
 # Sourced by repair-mounts.sh; also exercised in an isolated Linux mount namespace.
-mount_id() { awk -v p="$1" '$5==p {id=$1} END {print id}' /proc/self/mountinfo; }
+visible_mount_id() (
+    # An open fd identifies the mount selected by path lookup, even with stacked mounts.
+    # A subshell contains both the descriptor and any redirection failure.
+    exec 9< "$1" || exit 1
+    awk '$1=="mnt_id:" && $2~/^[0-9]+$/ {print $2; found=1} END {exit !found}' /proc/self/fdinfo/9
+) 2>/dev/null
+mount_id() {
+    local id
+    id=$(visible_mount_id "$1") || return 0
+    awk -v id="$id" -v path="$1" '$1==id && $5==path {print $1}' /proc/self/mountinfo
+}
+object_id() { stat -c '%d:%i' "$1"; }
+mount_is_readonly() {
+    awk -v id="$1" '$1==id && $6~/(^|,)ro(,|$)/ {ok=1} END {exit !ok}' /proc/self/mountinfo
+}
+capture_submounts() {
+    local root="$1" output="$2" path id identity attrs
+    awk -v prefix="$root/" 'index($5,prefix)==1 {print $5}' /proc/self/mountinfo | sort -u > "$output.paths" || return 1
+    : > "$output" || return 1
+    while IFS= read -r path; do
+        safe_path "$path" || return 1
+        id=$(mount_id "$path") || return 1
+        [ -n "$id" ] || continue
+        identity=$(object_id "$path") || return 1
+        attrs=$(awk -v id="$id" '$1==id {print $3":"$4" "$6}' /proc/self/mountinfo) || return 1
+        [ -n "$attrs" ] || return 1
+        printf '%s\t%s\t%s\n' "$path" "$identity" "$attrs" >> "$output" || return 1
+    done < "$output.paths"
+}
+verify_submounts() {
+    local tab path identity attrs id current
+    tab=$(printf '\t')
+    while IFS="$tab" read -r path identity attrs; do
+        id=$(mount_id "$path") && [ -n "$id" ] && [ "$(object_id "$path")" = "$identity" ] || {
+            engine_fail "原有子挂载未保留：$path"; return 1;
+        }
+        current=$(awk -v id="$id" '$1==id {print $3":"$4" "$6}' /proc/self/mountinfo)
+        [ "$current" = "$attrs" ] || { engine_fail "原有子挂载来源或属性变化：$path"; return 1; }
+    done < "$1"
+}
 safe_path() {
     # These are quoted filesystem names, NOT shell programs. '[' is a legitimate
     # Android toybox symlink. Reject only forms this mountinfo journal cannot encode.
@@ -149,9 +188,25 @@ merge_tree() {
     done
 }
 record_publication() {
-    # Log only newly created mount IDs under this publication root.
-    awk -v p="$1" 'NR==FNR {old[$1]=1; next}
-      !old[$1] && ($5==p || index($5,p"/")==1) {print $1"\t"$5}' "$W/before" /proc/self/mountinfo >> "$W/published"
+    local target="$1" staged="$2" root_id current path source_id
+    root_id=$(mount_id "$target")
+    [ -n "$root_id" ] && [ "$(object_id "$target")" = "$(object_id "$staged")" ] || return 1
+    if awk -v id="$root_id" '$1==id {found=1} END {exit !found}' "$W/before"; then return 1; fi
+    printf '%s\t%s\n' "$root_id" "$target" >> "$W/published" || return 1
+    awk -v id="$root_id" 'FILENAME==ARGV[1] {old[$1]=1; next}
+        {parent[$1]=$2; path[$1]=$5}
+        END {for (i in path) if (i!=id && !old[i]) {
+            p=i; while (p in parent && p!=id && p!=parent[p]) p=parent[p]
+            if (p==id) print i "\t" path[i]
+        }}' "$W/before" /proc/self/mountinfo > "$W/candidates" || return 1
+    while IFS="$(printf '\t')" read -r current path; do
+        case "$path" in "$target"/*) ;; *) continue;; esac
+        [ "$(mount_id "$path")" = "$current" ] || continue
+        source_id=$(mount_id "$staged${path#"$target"}")
+        [ -n "$source_id" ] || continue
+        [ "$(object_id "$path")" = "$(object_id "$staged${path#"$target"}")" ] || continue
+        printf '%s\t%s\n' "$current" "$path" >> "$W/published" || return 1
+    done < "$W/candidates"
 }
 rollback_publications() {
     local id target current
@@ -160,9 +215,7 @@ rollback_publications() {
     while read -r depth id target; do
         current=$(mount_id "$target")
         if [ "$current" = "$id" ]; then
-            umount "$target" || echo "撤回失败，需禁用模块后重启：$target"
-        else
-            echo "挂载归属已变化，不动他人的挂载：$target"
+            umount "$target" || engine_fail "卸载失败 $target"
         fi
     done < "$W/undo"
 }

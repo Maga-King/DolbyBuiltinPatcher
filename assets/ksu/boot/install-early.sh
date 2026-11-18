@@ -17,21 +17,10 @@ set_perm_recursive "$P" 0 0 0755 0644 u:object_r:metadata_file:s0
 while IFS="$tab" read -r source target expected label; do
     set_perm "$P/$source" 0 0 0644 "$label"
 done < "$P/vintf.tsv"
-ui_print '杜比全景+解码器：标准路径配置、无启动门控测试版'
-ui_print '音频配置和库文件由元模块加载；init 直接启动杜比服务，补挂结果不作为启动条件。'
-ui_print '切换元模块后，请卸载本模块 → 重启 → 重新安装。'
-ui_print '正常情况下不设置 skip_mount；元模块未生效时不会整包自挂载接管。'
-ui_print '重启后可点 Action 运行一次中文诊断；不会启动常驻检测。'
-ui_print '正在安装杜比 App 更新：不清数据、不降级、不修改隐藏设置。'
-if /system/bin/sh "$MODPATH/install-app.sh"; then
-    ui_print '杜比 App 已安装；系统底包仍保留在模块中。'
-else
-    ui_print 'App 暂未安装成功；开机完成后仅补试一次，详见 .runtime/app-install.log。'
+mkdir -p "$MODPATH/.runtime" || abort '无法创建模块运行目录。'
+if ! /system/bin/sh "$MODPATH/install-app.sh"; then
+    ui_print '杜比 App 安装失败，详见 .runtime/app-install.log。'
 fi
-ui_print '无需给杜比 App 授予 Root；不要为了修它关闭全局安全或隐藏设置。'
-if /system/bin/sh "$MODPATH/freeze-audioeffectcenter.sh"; then
-    ui_print 'OPLUS 音效中心已按需停用；卸载模块时会恢复原先启用状态。'
-else
-    ui_print 'OPLUS 音效中心暂未停用；开机完成后模块会有界重试。'
+if ! /system/bin/sh "$MODPATH/freeze-audioeffectcenter.sh" >"$MODPATH/.runtime/audioeffectcenter-install.log" 2>&1; then
+    ui_print 'OPLUS 音效中心停用失败。'
 fi
-ui_print '本包不按设备指纹或 SDK 拒装，但刷入成功不等于机型兼容。'

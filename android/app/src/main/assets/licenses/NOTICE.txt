@@ -1,0 +1,18 @@
+Dolby Module Builder Android UI dependencies & attribution
+
+miuix 0.9.3 (miuix-ui-android, miuix-preference-android, miuix-squircle-android) — compose-miuix-ui contributors
+https://github.com/compose-miuix-ui/miuix
+License: Apache-2.0 (included alongside this notice).
+
+Backdrop 2.0.1 / AndroidLiquidGlass — Kyant
+https://github.com/Kyant0/AndroidLiquidGlass
+License: Apache-2.0 (included alongside this notice).
+
+Rounded & outlined Material Design icon vectors — Google LLC
+https://github.com/google/material-design-icons
+License: Apache-2.0 (included alongside this notice).
+
+SELinuxProject secilc & libsepol — SELinuxProject contributors
+Licenses included under dolby_assets/licenses/secilc and dolby_assets/licenses/libsepol.
+
+SukiSU Ultra, KernelSU, and Nyako Manager were consulted for interaction and visual layout patterns.

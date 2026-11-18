@@ -40,7 +40,7 @@ class App(c.CTk):
         menu.grid(row=0,column=1,sticky='ew');self.device_menu=menu;self.controls.append(menu)
         refresh=c.CTkButton(self.deviceframe,text='刷新设备',width=90,height=36,command=self.refresh_devices);refresh.grid(row=0,column=2,padx=(15,0));self.controls.append(refresh)
         self.deviceframe.grid_remove()
-        self.hint=c.CTkLabel(self,text='ADB 需 root。多设备手动选择；实时读取只支持生成 KSU 模块，不修改运行分区。',font=('Microsoft YaHei UI',12),text_color='#647084',anchor='w',wraplength=900)
+        self.hint=c.CTkLabel(self,text='ADB 需要 Root',font=('Microsoft YaHei UI',12),text_color='#647084',anchor='w',wraplength=900)
         self.hint.grid(row=2,column=0,sticky='ew',padx=32,pady=(10,12))
         bar=c.CTkFrame(self,fg_color='transparent');bar.grid(row=3,column=0,sticky='ew',padx=28,pady=(0,14))
         self.action_buttons={}
@@ -71,7 +71,7 @@ class App(c.CTk):
         else:self.deviceframe.grid_remove()
         for name in ('一键修改 ROM','回退修改','恢复任务状态'):
             self.action_buttons[name].configure(state='disabled' if live else 'normal')
-        self.hint.configure(text='实时只读 /system、/system_ext、/product、/vendor、/odm；可能包含其他模块挂载。仅生成 KSU ZIP。' if live else 'ADB 需 root。多设备手动选择；手机解包路径示例：/data/DNA/DNA_AB。不会刷分区或重启。')
+        self.hint.configure(text='来源 · 当前系统' if live else '手机 ROM 路径示例 · /data/DNA/DNA_AB')
 
     def browse(self):
         value=filedialog.askdirectory(parent=self)
@@ -138,7 +138,7 @@ class App(c.CTk):
                     filetypes=[('KSU 模块 ZIP','*.zip')],confirmoverwrite=True)
         if not destination:return
         if not messagebox.askyesno('确认只读生成',
-                f'来源：{"当前系统分区（可能含其他模块挂载）" if live else path}\n设备：{serial or "电脑目录"}\n保存：{destination}\n\n仅生成，需要 KSU 元模块；尚不保证所有元模块运行兼容。不会安装、写回或重启。',parent=self):return
+                f'来源：{"当前系统" if live else path}\n设备：{serial or "电脑目录"}\n保存：{destination}',parent=self):return
         self.start(lambda:str(generate_module(destination,root=path,serial=serial,live=live,log=self.log)))
 
     def choose_session(self):

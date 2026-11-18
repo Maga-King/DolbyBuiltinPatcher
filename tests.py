@@ -626,7 +626,7 @@ class KsuTests(unittest.TestCase):
         self.assertNotIn("put('skip_mountify'",boot)
         self.assertIn("'post-fs-data.sh','post-mount.sh'",boot)
         self.assertIn("'preserve.sh','repair-mounts.sh'",boot)
-        self.assertIn('卸载本模块→重启→重新安装',module)
+        self.assertNotIn("write(folder/'README.txt'",module)
         self.assertNotIn("'preserve.sh','service.sh'",boot)
 
     def test_meta_preserve_failure_does_not_create_skip_mount_flags(self):
@@ -652,7 +652,7 @@ class KsuTests(unittest.TestCase):
         self.assertIn('[ "$matched" -gt 0 ]',text)
         self.assertIn('rollback_publications',text)
         self.assertIn('runtime-paths.sh',(ASSETS/'ksu/boot/install-early.sh').read_text(encoding='utf-8'))
-        self.assertIn('remount,bind,ro "$payload" "$target"',text)
+        self.assertIn('remount,bind,ro "$staged" "$target"',text)
         engine=(ASSETS/'ksu/boot/mount-engine.sh').read_text(encoding='utf-8')
         self.assertIn('remount,bind,ro "$src" "$dst"',engine)
         self.assertNotIn('*[!a-zA-Z0-9_./@+-]*',engine)
@@ -661,8 +661,8 @@ class KsuTests(unittest.TestCase):
         text=(ASSETS/'ksu/boot/repair-mounts.sh').read_text(encoding='utf-8')
         self.assertLess(text.index('plan_tree "$root"'),text.index('merge_tree "$target"'))
         self.assertLess(text.index('done < "$W/targets"'),text.index('pending="$target"'))
-        self.assertIn('mount -o bind "$payload" "$target"',text)
-        self.assertIn('mount --rbind "$payload" "$target"',text)
+        self.assertIn('mount -o bind "$staged" "$target"',text)
+        self.assertIn('mount --rbind "$staged" "$target"',text)
         self.assertIn('"$R/repair-plan.tsv"',text)
         self.assertNotIn('mount -t overlay',text)
 
@@ -670,12 +670,22 @@ class KsuTests(unittest.TestCase):
         text=(ASSETS/'ksu/boot/install-app.sh').read_text(encoding='utf-8')
         self.assertIn('pm install -r --user 0',text)
         self.assertIn('timeout -s TERM -k 2 50',text)
-        self.assertIn('set -o pipefail',text)
-        self.assertIn('2>&1 | "$BB" tee',text)
+        self.assertIn('>"$R/app-install.log" 2>&1',text)
+        self.assertNotIn('tee ',text)
         self.assertIn('cmp -s "$APK" "$current"',text)
         for forbidden in ('pm uninstall','pm clear','install -r -d','profile set','setenforce','while '):
             self.assertNotIn(forbidden,text)
         self.assertIn('install-app.sh',(ASSETS/'ksu/boot/service.sh').read_text(encoding='utf-8'))
+
+    def test_module_installer_prints_only_actionable_errors(self):
+        installer=(ASSETS/'ksu/customize.sh').read_text(encoding='utf-8')
+        early=(ASSETS/'ksu/boot/install-early.sh').read_text(encoding='utf-8')
+        for text in (installer,early):
+            self.assertNotIn('切换元模块后',text)
+            self.assertNotIn('刷入成功不代表',text)
+            self.assertNotIn('不清数据',text)
+        self.assertIn('杜比 App 安装失败',early)
+        self.assertIn('OPLUS 音效中心停用失败',early)
 
     def test_audioeffectcenter_freeze_is_owned_and_restored_on_uninstall(self):
         from pathlib import Path
@@ -689,10 +699,12 @@ class KsuTests(unittest.TestCase):
         self.assertIn('audioeffectcenter-disabled-by-module',freezer)
         self.assertIn('disable-user --user 0 "$APP"',freezer)
         self.assertIn('freeze-audioeffectcenter.sh',service)
-        self.assertIn('freeze-audioeffectcenter.sh',customize)
+        self.assertNotIn('freeze-audioeffectcenter.sh',customize)
         self.assertIn('pm enable --user 0 "$APP"',uninstall)
         self.assertIn('audioeffectcenter-disabled-by-module',uninstall)
         self.assertIn("'freeze-audioeffectcenter.sh'",boot)
+        install_early=(ASSETS/'ksu/boot/install-early.sh').read_text(encoding='utf-8')
+        self.assertIn('freeze-audioeffectcenter.sh',install_early)
 
     def test_copy_fallback_is_memory_bounded_and_removes_bind_before_copy(self):
         text=(ASSETS/'ksu/boot/mount-engine.sh').read_text(encoding='utf-8')
@@ -718,7 +730,9 @@ class KsuTests(unittest.TestCase):
         self.assertIn('P=${0%/*}',early)
         installer=(ASSETS/'ksu/boot/install-early.sh').read_text(encoding='utf-8')
         self.assertIn('dolby_preinit_base',installer)
-        self.assertIn('卸载本模块 → 重启 → 重新安装',installer)
+        self.assertIn('杜比 App 安装失败',installer)
+        self.assertIn('OPLUS 音效中心停用失败',installer)
+        self.assertEqual(sum(line.strip().startswith('ui_print ') for line in installer.splitlines()),2)
         for line in installer.splitlines():
             if 'abort ' in line or line.startswith('ui_print '):
                 self.assertTrue(any('\u4e00' <= ch <= '\u9fff' for ch in line),line)
@@ -793,15 +807,13 @@ class KsuTests(unittest.TestCase):
                     rc.replace('service mio-dolby-codec ','service missing-codec ')):
             with self.subTest(rc=bad),self.assertRaises(PatchError):validate_codec_recovery(bad)
 
-    def test_action_does_not_report_old_boot_as_current(self):
+    def test_action_queries_live_interfaces_with_bounded_output(self):
         text=(ASSETS/'ksu/action.sh').read_text(encoding='utf-8')
-        self.assertIn('cmp -s "$MODDIR/.runtime/boot" /proc/sys/kernel/random/boot_id',text)
-        self.assertIn('getprop init.svc.$name',text)
-        self.assertNotIn('ctl.restart',text)
-        self.assertNotIn('sleep ',text)
-        self.assertIn('timeout -s TERM -k 2 45',text)
-        self.assertIn('dumpsys package',text)
-        self.assertNotIn('pm install',text)
+        for required in ('getprop "init.svc.$2"', 'timeout -s TERM -k 1 18',
+                         'lshal list --types=b --neat -i -p', 'service list', 'tail -n 8'):
+            self.assertIn(required,text)
+        for forbidden in ('repair.log','mountinfo','ctl.restart','sleep ','dumpsys package','pm install'):
+            self.assertNotIn(forbidden,text)
 
     def test_initrc_cache_guard_is_bounded_and_not_hot_reload(self):
         text=(ASSETS/'ksu/boot/initrc-cache.sh').read_text(encoding='utf-8')
@@ -817,7 +829,7 @@ class KsuTests(unittest.TestCase):
         service=(ASSETS/'ksu/boot/service.sh').read_text(encoding='utf-8')
         self.assertEqual(service.count('"$M/initrc-cache.sh" repair'),1)
         action=(ASSETS/'ksu/action.sh').read_text(encoding='utf-8')
-        self.assertIn('"$MODDIR/initrc-cache.sh" check',action)
+        self.assertNotIn('initrc-cache.sh',action)
 
     def test_metamodule_description_is_not_dolby_identity(self):
         text=(ASSETS/'ksu/customize.sh').read_text(encoding='utf-8')

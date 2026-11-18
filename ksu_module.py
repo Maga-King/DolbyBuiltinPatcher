@@ -12,7 +12,7 @@ import zipfile
 from pathlib import Path
 from core import ASSETS, VERSION, Build, PatchError, read, save_json, write, sha, xml_parse, xml_bytes
 from patcher_workflow import history_root
-from ksu_boot import export_boot, target_bindings, RUNTIME_VERSION, MODULE_README
+from ksu_boot import export_boot, target_bindings, RUNTIME_VERSION
 
 MODULE_ID='mio_dolby_c17_generated'
 
@@ -25,7 +25,7 @@ def inspect_live(serial,log=lambda s:None):
     root,source=Adb(serial,log).snapshot_live(folder)
     _,info=inspect_rom(root,require_metadata=False)
     save_json(folder/'inspection.json',dict(source=source,rom_info=info,readonly=True))
-    log('实时只读检查通过：'+info['model']+' / SDK '+info['sdk'])
+    log('系统检查通过：'+info['model']+' / SDK '+info['sdk'])
     return folder
 
 
@@ -79,7 +79,6 @@ class ModuleBuild(Build):
 
     def run(self):
         try:
-            self.log('KSU：只读输入；不写回 ROM，不安装模块')
             # A live snapshot can include an already active module. Do not turn
             # its overlay back into a supposed stock baseline or duplicate HALs.
             for part in ('vendor','odm'):
@@ -88,7 +87,7 @@ class ModuleBuild(Build):
                     if data.startswith(b'!<symlink>'):continue
                     root=xml_parse(data)
                     if any(h.findtext('name') in ('vendor.dolby.dms','vendor.dolby.hardware.dms') for h in root.findall('hal')):
-                        raise PatchError('输入中已存在 Dolby DMS 声明；请关闭现有杜比并重启后读取，或选择未内置杜比的 ROM')
+                        raise PatchError('输入已有 Dolby DMS')
             self.add_payload();self.merge_configs();self.compile_policy()
             self.export_module()
             return self.session
@@ -145,8 +144,7 @@ class ModuleBuild(Build):
             if not any(line.split() and line.split()[0]==key and line.split()[-1]=='u:object_r:'+typename+':s0' for line in text.splitlines()):
                 raise PatchError('模块无法安全晚加载服务标签，需先原生适配：'+filename+' '+key)
         write(folder/'labels.tsv',''.join('\t'.join(row)+'\n' for row in labels))
-        write(folder/'module.prop',f'id={MODULE_ID}\nname=杜比全景+解码器\nversion={RUNTIME_VERSION}\nversionCode=615\nauthor=科比\ndescription=兼容新旧 Codec 配置；建议 KSU + 可用元模块；切换元模块后，请卸载本模块→重启→重新安装。Action 可运行一次中文诊断。\n')
-        write(folder/'README.txt',MODULE_README)
+        write(folder/'module.prop',f'id={MODULE_ID}\nname=杜比全景+解码器\nversion={RUNTIME_VERSION}\nversionCode=618\nauthor=科比\ndescription=Dolby DMS · Codec2\n')
         report=dict(version=VERSION,kind='ksu-module',applied=False,install_performed=False,rom_modified=False,
                     source=self.source_info,rom_info=self.info,module_mounts=mounted,late_mounts=[],
                     excluded_from_mount=excluded,boot_tested=False,limitations=['target-specific','metamodule and startup require device testing','no automatic audio config rollback'])
@@ -159,7 +157,7 @@ class ModuleBuild(Build):
                 if path.is_file():archive.write(path,path.relative_to(folder).as_posix())
         with zipfile.ZipFile(output) as archive:
             if archive.testzip():raise PatchError('模块 ZIP 损坏')
-        self.log('已生成 KSU 模块；尚未安装或做目标机开机验证：'+str(output))
+        self.log('模块 ZIP：'+str(output))
 
 
 def generate_module(destination,root=None,serial=None,live=False,log=lambda s:None,output=None):

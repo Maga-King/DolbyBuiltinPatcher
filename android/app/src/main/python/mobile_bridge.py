@@ -27,7 +27,7 @@ def check_environment(runtime_dir):
     with zipfile.ZipFile(assets/'payload.zip') as archive:
         missing={row['canonical'] for row in manifest}-set(archive.namelist())
         if missing:raise ValueError('资产清单缺件：'+', '.join(sorted(missing)[:4]))
-    return f'Python / 共享生成器 / RC 模板可用，资产清单 {len(manifest)} 项齐全。未生成、未安装模块。'
+    return f'资产 {len(manifest)} 项 · 就绪'
 
 
 def setup(runtime_dir, work_dir, bridge):
