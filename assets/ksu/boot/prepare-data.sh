@@ -13,9 +13,10 @@ echo "DATA_PREPARE_BEGIN $(cat /proc/uptime)" > "$R/status"
 mkdir -p /data/vendor/dolby || fail '无法创建 Dolby 数据目录'
 [ "$(readlink -f /data/vendor/dolby)" = /data/vendor/dolby ] || fail 'Dolby 数据目录路径异常'
 . "$M/storage-access.sh" || fail '缺少 Dolby 数据权限脚本'
+. "$M/user-state.sh" || fail '缺少用户状态脚本'
 dolby_open_storage /data/vendor/dolby vendor || fail 'Dolby 数据权限修复失败'
 dolby_open_storage /data/user_de/0/org.lunaris.dolby app || fail 'Dolby DE 设置权限修复失败'
-if [ "$(cmd user is-user-unlocked 0 2>/dev/null)" = true ]; then
+if [ "$(dolby_user_unlock_state)" = true ]; then
     dolby_open_storage /data/user/0/org.lunaris.dolby app || fail 'Dolby CE 设置权限修复失败'
 fi
 # END DOLBY DATABASE ACCESS

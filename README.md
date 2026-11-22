@@ -5,7 +5,7 @@
 
 模块署名：**科比**。推荐组合：**KSU + MOUNTIFY**。
 
-手机版 0.2.12 预览位于 [`android/`](android/README.md)：通过 root 从当前系统或手机解包 ROM
+手机版 0.2.13 预览位于 [`android/`](android/README.md)：通过 root 从当前系统或手机解包 ROM
 生成 ZIP，也可输入 `/data/DNA/DNA_01` 一类目录，备份后原位内置杜比；无需电脑参与运行。
 公开仓库不附带包含专有资产的 APK。
 
@@ -61,8 +61,8 @@ App 源码目录为 [LunarisDolby](https://github.com/Pong-Development/hardware_
 
 ## 当前模块机制
 
-最新电脑生成器为 1.0.9。手机版 0.2.12 和当前源码生成的模块版本为
-**`0.6.7-permissions`**，`versionCode=619`。
+最新电脑生成器为 1.0.10。手机版 0.2.13 和当前源码生成的模块版本为
+**`0.6.8-install-state`**，`versionCode=620`。
 电脑端三种来源、手机版两种来源共用同一模块生成器与运行脚本。
 本版新增按引用链识别新旧 Codec 音频布局，内置与模块共用同一发现/合并实现。
 旧包保留原厂音频节点；新版仅在确认高通视频入口、Google 音频及缺失 C2 音频 Include 后，
@@ -117,6 +117,13 @@ su -c 'sh /data/adb/modules/mio_dolby_c17_generated/initrc-cache.sh repair'
 禁用、待卸载或待更新时跳过修复；不会擅自启用模块。
 
 ## 使用前必须了解
+
+- 1.0.10 / APK 0.2.13 修正安装结果判断：PackageManager 返回 Binder transaction 错误后，
+  用最多三次有时限的查询核对用户 0 的 `/data/app` 注册 APK 与模块字节一致才确认成功。
+  原始命令/查询返回保留在 `.runtime/app-package-command.log` 和 `app-package-query.log`。
+  命令失败且结果不能确认时继续报告，系统 APK 挂载不当作用户更新已成功，不重复盲装或清空数据。
+  ColorOS 不支持 `cmd user is-user-unlocked` 时优先使用 `cmd activity get-started-user-state 0`，
+  恢复首次解锁后的 CE 权限兜底；两种查询均不可用时保留 unknown，不猜已解锁。
 
 - 2026-11-22 权限测试版：保留旧 Lunaris 规则，追加上游最新 `set_prop` 修复；
   两个 DMS 域增加音频/Dolby 属性写入和专属 permissive，普通 App/系统音频域不设 permissive。

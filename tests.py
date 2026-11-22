@@ -745,8 +745,10 @@ class KsuTests(unittest.TestCase):
 
     def test_app_update_is_bounded_and_never_downgrades_or_changes_hiding(self):
         text=(ASSETS/'ksu/boot/install-app.sh').read_text(encoding='utf-8')
-        self.assertIn('pm install -r --user 0',text)
-        self.assertIn('timeout -s TERM -k 2 50',text)
+        package=(ASSETS/'ksu/boot/package-state.sh').read_text(encoding='utf-8')
+        self.assertIn('pm install -r --user 0',package)
+        self.assertIn('dolby_install_update "$T/base.apk"',text)
+        self.assertIn('timeout -s TERM -k 2 75',text)
         self.assertIn('>"$R/app-install.log" 2>&1',text)
         self.assertNotIn('tee ',text)
         self.assertIn('cmp -s "$APK" "$current"',text)

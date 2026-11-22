@@ -38,8 +38,8 @@ android {
         applicationId 'io.github.magaking.dolbybuilder'
         minSdk 26
         targetSdk 35
-        versionCode 19
-        versionName '0.2.12-permissions'
+        versionCode 20
+        versionName '0.2.13-install-state'
         ndk { abiFilters 'arm64-v8a' }
     }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }

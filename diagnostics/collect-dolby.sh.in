@@ -168,7 +168,7 @@ collect_database() {
         done
     done
     capture database/recent-dms.txt 8 logcat -b all -d -v threadtime -s 'DatabaseHelper:V' 'DsContextManager:V' 'DlbDatabaseProvider:V' 'DolbyManagerService:V' 'DolbyManagerSvc:V' 'DMSService:V' 'DsManager:V' 'TuningFileParser:V' 'AHAL_DolbyDapEffect:V' 'DlbDapEffectContext:V' 'DlbEffectContext:V' 'libc:F' '*:S'
-    for f in prepare-data.sh storage-access.sh install-app.sh action.sh gate.sh service.sh post-fs-data.sh sepolicy.rule module.prop; do
+    for f in prepare-data.sh storage-access.sh package-state.sh user-state.sh install-app.sh action.sh gate.sh service.sh post-fs-data.sh sepolicy.rule module.prop; do
         copy_file "$M/$f" "module/$f"
     done
     return 0

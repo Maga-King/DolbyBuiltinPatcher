@@ -60,12 +60,15 @@ class ModuleExportTests(unittest.TestCase):
             with zipfile.ZipFile(build.session/'Dolby_C17_KSU.zip') as archive:
                 names=set(archive.namelist())
                 self.assertIn('storage-access.sh',names)
+                self.assertIn('package-state.sh',names)
+                self.assertIn('user-state.sh',names)
+                self.assertIn('dolby_install_update "$T/base.apk"',archive.read('install-app.sh').decode())
                 self.assertIn('-exec chmod 0777',archive.read('storage-access.sh').decode())
                 self.assertIn('dolby_open_storage /data/vendor/dolby vendor',archive.read('prepare-data.sh').decode())
                 self.assertNotIn('README.txt',names)
                 self.assertIn('description=Dolby DMS · Codec2',archive.read('module.prop').decode())
-                self.assertIn('version=0.6.7-permissions',archive.read('module.prop').decode())
-                self.assertIn('versionCode=619',archive.read('module.prop').decode())
+                self.assertIn('version=0.6.8-install-state',archive.read('module.prop').decode())
+                self.assertIn('versionCode=620',archive.read('module.prop').decode())
                 mounts={row.split('\t')[1]:row.split('\t')[0] for row in archive.read('mounts.tsv').decode().splitlines()}
                 labels={row.split('\t')[0]:row.split('\t')[1:] for row in archive.read('labels.tsv').decode().splitlines()}
                 for target in audio+['odm/etc/dolby/dax-default.xml']:

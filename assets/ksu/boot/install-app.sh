@@ -6,9 +6,9 @@ BB=/data/adb/ksu/bin/busybox
 APP=org.lunaris.dolby
 mkdir -p "$R" || exit 1
 if [ "${1:-}" != run ]; then
-    "$BB" timeout -s TERM -k 2 50 /system/bin/sh "$M/install-app.sh" run </dev/null >"$R/app-install.log" 2>&1
+    "$BB" timeout -s TERM -k 2 75 /system/bin/sh "$M/install-app.sh" run </dev/null >"$R/app-install.log" 2>&1
     result=$?
-    [ "$result" = 0 ] || echo "App 安装失败（$result）。" >> "$R/app-install.log"
+    [ "$result" = 0 ] || echo "App 更新未确认（$result），请查看原始命令记录；已有数据未清除。" >> "$R/app-install.log"
     exit "$result"
 fi
 [ ! -e "$M/disable" ] && [ ! -e "$M/remove" ] || exit 1
@@ -28,6 +28,7 @@ repair_app_data_labels() {
     done
 }
 . "$M/storage-access.sh" || exit 1
+. "$M/package-state.sh" || exit 1
 APK="$M/system/system_ext/priv-app/LunarisDolby/LunarisDolby.apk"
 [ -s "$APK" ] && [ ! -L "$APK" ] || { echo '模块中的杜比 APK 不存在或无效。'; exit 1; }
 current=$("$BB" timeout -s TERM -k 1 5 pm path --user 0 "$APP" | sed -n 's/^package://p' | head -n 1)
@@ -53,7 +54,5 @@ trap cleanup EXIT
 trap 'exit 1' TERM INT HUP
 chmod 0755 "$T" && cp "$APK" "$T/base.apk" && chmod 0644 "$T/base.apk" || exit 1
 restorecon -RF "$T" || exit 1
-"$BB" timeout -s TERM -k 1 35 pm install -r --user 0 "$T/base.apk" || exit 1
-current=$("$BB" timeout -s TERM -k 1 5 pm path --user 0 "$APP" | sed -n 's/^package://p' | head -n 1)
-case "$current" in /data/app/*) cmp -s "$APK" "$current" || exit 1;; *) exit 1;; esac
+dolby_install_update "$T/base.apk" || exit 1
 repair_app_data_labels || exit 1

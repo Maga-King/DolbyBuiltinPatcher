@@ -144,7 +144,7 @@ class ModuleBuild(Build):
             if not any(line.split() and line.split()[0]==key and line.split()[-1]=='u:object_r:'+typename+':s0' for line in text.splitlines()):
                 raise PatchError('模块无法安全晚加载服务标签，需先原生适配：'+filename+' '+key)
         write(folder/'labels.tsv',''.join('\t'.join(row)+'\n' for row in labels))
-        write(folder/'module.prop',f'id={MODULE_ID}\nname=杜比全景+解码器\nversion={RUNTIME_VERSION}\nversionCode=619\nauthor=科比\ndescription=Dolby DMS · Codec2 · 建议 KSU + MOUNTIFY；切换元模块请卸载杜比、重启后重装\n')
+        write(folder/'module.prop',f'id={MODULE_ID}\nname=杜比全景+解码器\nversion={RUNTIME_VERSION}\nversionCode=620\nauthor=科比\ndescription=Dolby DMS · Codec2 · 建议 KSU + MOUNTIFY；切换元模块请卸载杜比、重启后重装\n')
         report=dict(version=VERSION,kind='ksu-module',applied=False,install_performed=False,rom_modified=False,
                     source=self.source_info,rom_info=self.info,module_mounts=mounted,late_mounts=[],
                     excluded_from_mount=excluded,boot_tested=False,limitations=['target-specific','metamodule and startup require device testing','no automatic audio config rollback'])

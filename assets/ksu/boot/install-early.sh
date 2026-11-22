@@ -19,7 +19,7 @@ while IFS="$tab" read -r source target expected label; do
 done < "$P/vintf.tsv"
 mkdir -p "$MODPATH/.runtime" || abort '无法创建模块运行目录。'
 if ! /system/bin/sh "$MODPATH/install-app.sh"; then
-    ui_print '杜比 App 安装失败，详见 .runtime/app-install.log。'
+    ui_print '杜比 App 安装失败或尚未确认，已有 App 保留；详见 .runtime/app-install.log。'
 fi
 if ! /system/bin/sh "$MODPATH/freeze-audioeffectcenter.sh" >"$MODPATH/.runtime/audioeffectcenter-install.log" 2>&1; then
     ui_print 'OPLUS 音效中心停用失败。'

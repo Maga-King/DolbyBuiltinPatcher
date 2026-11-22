@@ -14,11 +14,12 @@ if [ "${1:-}" != collect ]; then
 fi
 
 bounded() { "$BB" timeout -s TERM -k 1 4 "$@" 2>/dev/null; }
+. "$MODDIR/user-state.sh" || exit 1
 detail="$R/diagnostic-detail"
 mkdir -p "$detail"
 printf '杜比诊断 · %s\n' "$(date '+%Y-%m-%d %H:%M:%S')"
 printf '系统：%s · SDK %s · DSU %s\n' "$(getprop ro.build.display.id)" "$(getprop ro.build.version.sdk)" "$(getprop ro.gsid.image_running)"
-printf 'SELinux：%s · 用户解锁：%s\n' "$(getenforce 2>/dev/null)" "$(cmd user is-user-unlocked 0 2>/dev/null)"
+printf 'SELinux：%s · 用户解锁：%s\n' "$(getenforce 2>/dev/null)" "$(dolby_user_unlock_state)"
 printf '场景属性：persist.vendor.audio.scenario=%s\n' "$(getprop persist.vendor.audio.scenario)"
 printf '该属性实际标签：%s\n' "$(getprop -Z persist.vendor.audio.scenario 2>/dev/null)"
 printf '声明值类型：%s\n' "$(getprop -T persist.vendor.audio.scenario 2>/dev/null)"
@@ -90,17 +91,19 @@ done
 printf '\n请求的属性权限和 permissive（实际是否生效需看内核）\n'
 awk '/^permissive |^allow hal_(aidl_)?dms_default .*property_service|^allow hal_(aidl_)?dms_default property_socket/ {print}' "$MODDIR/sepolicy.rule"
 printf '\n近期准备/解锁/安装结果\n'
-for file in prepare.log storage-after-unlock.log app-install.log initrc-cache.log; do
+for file in prepare.log storage-after-unlock.log app-install.log app-package-command.log app-package-query.log initrc-cache.log; do
     [ ! -f "$R/$file" ] || { printf '%s\n' "$file"; tail -n 8 "$R/$file"; }
 done
 bounded logcat -b main -b system -b crash -d -t 3500 -v threadtime > "$detail/logcat.txt"
-awk 'tolower($0) ~ /dolby|dapcontroller|dscontext|dms|persist.vendor.audio.scenario|avc: denied|sqlite.*(error|readonly|denied)/ {print}' "$detail/logcat.txt" | tail -n 70 > "$detail/dolby-errors.txt"
+awk 'tolower($0) ~ /dolby|dapcontroller|dscontext|[ :]dms|persist.vendor.audio.scenario|avc: denied|sqlite.*(error|readonly|denied)/ &&
+     tolower($0) !~ /contextaware|apprecommend|sortalgorithm|pantanal/ {print}' "$detail/logcat.txt" | tail -n 70 > "$detail/dolby-errors.txt"
 printf '\n近期预设/存储/拒绝信息\n'
 tail -n 24 "$detail/dolby-errors.txt"
 bounded dumpsys media.audio_flinger > "$detail/audio-flinger.txt"
 bounded dumpsys media.audio_policy > "$detail/audio-policy.txt"
 printf '\nDAP 后处理位置\n'
-awk 'tolower($0) ~ /dap|dolby|effect chain|session|output thread/ {print}' "$detail/audio-flinger.txt" | head -n 32
+grep -i -A 8 -B 6 -e 'DAP' -e 'Dolby' "$detail/audio-flinger.txt" | head -n 80
+printf '完整音频线程资料：%s/audio-flinger.txt\n' "$detail"
 printf '\n详细资料：%s\n' "$detail"
 printf '导出规则中 permissive 仅代表模块要求；不能据此保证内核已成功注入。\n'
 
