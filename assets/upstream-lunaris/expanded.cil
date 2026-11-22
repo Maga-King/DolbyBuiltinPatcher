@@ -1,4 +1,5 @@
-; Pong-Development/hardware_dolby @ 6300a4e30757d5810d62b2df0cff973ec438a70f
+; Historical effective grants @ 6300a4e30757d5810d62b2df0cff973ec438a70f retained.
+; Latest set_prop fix @ b2963f7c2c7835389e7c16bdb0946ff9311d20e2 added below.
 ; hal_dms_default.te / hal_server_domain + type attribute memberships
 (typeattributeset domain (hal_dms_default))
 (typeattributeset halserverdomain (hal_dms_default))
@@ -23,6 +24,13 @@
 (allow hal_dms_default property_socket (sock_file (write)))
 (allow hal_dms_default init (unix_stream_socket (connectto)))
 (allow hal_dms_default vendor_audio_prop (file (getattr open read map)))
+; Current Lunaris set_prop macro: preset/scenario synchronization.
+(allow hal_dms_default vendor_audio_prop (property_service (set)))
+; AIDL DMS wraps the same libdlbdsservice and needs the same complete macro.
+(allow hal_aidl_dms_default property_socket (sock_file (write)))
+(allow hal_aidl_dms_default init (unix_stream_socket (connectto)))
+(allow hal_aidl_dms_default vendor_audio_prop (property_service (set)))
+(allow hal_aidl_dms_default vendor_audio_prop (file (getattr open read map)))
 ; hal_audio_default.te + hal_dms_default.te binder_call pairs
 (allow hal_audio_default hal_dms_hwservice (hwservice_manager (find)))
 (allow hal_audio_default hal_dms_default (binder (call transfer)))

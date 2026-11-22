@@ -27,3 +27,5 @@ allow hal_dms_default vendor_data_file dir { search read open getattr write add_
 allow hal_dms_default vendor_data_file file { create read open getattr write append map rename unlink }
 allow hal_aidl_dms_default vendor_data_file dir { search read open getattr write add_name remove_name }
 allow hal_aidl_dms_default vendor_data_file file { create read open getattr write append map rename unlink }
+permissive hal_dms_default
+permissive hal_aidl_dms_default

@@ -17,3 +17,15 @@ init_daemon_domain 的允许、转换、dontaudit：已展开。
 add_hwservice 的 neverallow 断言：不影响 -N 模式下的有效权限；原始宏与源文件有记录，不用断言删授权。
 file_contexts 的老 Codec2 vendor 路径不套给当前 system_ext 可执行文件；使用本工具已有 mediacodec_exec 标签。
 不是把小米专有音效库搬进 C17；这里只引入此仓库的 SELinux 集成规则。
+
+## 2026-11-22 增量刷新
+
+重新读取分支 16，当前提交 `b2963f7c2c7835389e7c16bdb0946ff9311d20e2`。
+`latest/` 保留该提交 sepolicy/vendor 的全部原始文件。
+当前上游 hal_dms_default.te 明确新增 set_prop(hal_dms_default, vendor_audio_prop)，
+用于 libdlbdsservice 在切预设时写 persist.vendor.audio.scenario。
+expanded.cil 保留旧提交的全部有效授权，再增量加入该 set_prop 的 property_service set，
+并为本工具的 AIDL DMS 补完整 property socket/connectto/read/set。
+上游新的 vendor_dolby_data_file 声明与 contexts 保留在 latest 原文，运行时不强加新类型：
+policy_sources 按目标实际 Dolby 数据标签为两个 DMS 域追加存取授权，保留已有标签。
+不删除旧平台客户端/Binder/存储授权，不把新上游客户端布局整套覆盖当前桥接配置。

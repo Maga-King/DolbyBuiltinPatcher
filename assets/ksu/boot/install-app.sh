@@ -20,12 +20,14 @@ repair_app_data_labels() {
     # Ask libselinux/PackageManager's package table; never hard-code UID or MCS.
     for path in /data/user_de/0/org.lunaris.dolby /data/user/0/org.lunaris.dolby; do
         [ -d "$path" ] || continue
-        [ ! -L "$path" ] && [ "$(readlink -f "$path")" = "$path" ] || {
+        [ ! -L "$path" ] || {
             echo "数据目录不是预期路径，停止标签修复：$path"; return 1;
         }
         restorecon -RF "$path" || { echo "数据标签修复失败：$path"; return 1; }
+        dolby_open_storage "$path" app || return 1
     done
 }
+. "$M/storage-access.sh" || exit 1
 APK="$M/system/system_ext/priv-app/LunarisDolby/LunarisDolby.apk"
 [ -s "$APK" ] && [ ! -L "$APK" ] || { echo '模块中的杜比 APK 不存在或无效。'; exit 1; }
 current=$("$BB" timeout -s TERM -k 1 5 pm path --user 0 "$APP" | sed -n 's/^package://p' | head -n 1)
@@ -35,6 +37,9 @@ case "$current" in /data/app/*)
         exit 0
     fi;;
 esac
+# Repair existing settings even when installing a newer/older APK is rejected.
+# This step keeps the package's existing UID/MCS and retains saved settings.
+repair_app_data_labels || exit 1
 T=$(mktemp -d /data/local/tmp/dolby-app.XXXXXX) || exit 1
 cleanup() {
     trap - EXIT TERM INT HUP

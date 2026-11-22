@@ -351,6 +351,82 @@ class PackingTests(unittest.TestCase):
             self.assertEqual(rom.packing_prefix('vendor','file_contexts'),('vendor_a','vendor'))
 
 class PolicyTests(unittest.TestCase):
+    def test_dms_scenario_set_prop_export_has_both_complete_bridges(self):
+        from policy_rules import catalog, magisk_rules
+        rows=catalog()
+        exported=magisk_rules('\n'.join(r['cil'] for r in rows))
+        for domain in ('hal_dms_default','hal_aidl_dms_default'):
+            for target,cls,permission in (('vendor_audio_prop','property_service','set'),
+                                          ('property_socket','sock_file','write'),
+                                          ('init','unix_stream_socket','connectto')):
+                self.assertIn(f'allow {domain} {target} {cls} {{ {permission} }}',exported)
+        self.assertFalse(any(r['object_class']=='property_service' and
+                             r['source'] in ('priv_app','platform_app','system_app','mediacodec') for r in rows))
+
+    def property_fixture(self,root,contexts,data=''):
+        from policy_sources import context_evidence
+        path=root/'vendor/etc/selinux';path.mkdir(parents=True)
+        (path/'vendor_property_contexts').write_text(contexts,encoding='utf-8')
+        (path/'vendor_file_contexts').write_text(data,encoding='utf-8')
+        return context_evidence(SimpleNamespace(rom=SimpleNamespace(parts={'vendor':root/'vendor'})))
+
+    def test_specific_scenario_label_added_even_when_generic_audio_type_exists(self):
+        from policy_rules import catalog
+        from policy_sources import adapt
+        with tempfile.TemporaryDirectory() as tmp:
+            evidence=self.property_fixture(Path(tmp),
+                'persist.vendor.audio. u:object_r:vendor_audio_prop:s0 prefix\n'
+                'persist.vendor.audio.scenario u:object_r:oplus_audio_scenario_prop:s0 exact int\n'
+                'persist.vendor.audio.scenario.extra u:object_r:wrong_exact_prop:s0 exact\n'
+                'vendor.display.dolbyvision u:object_r:display_prop:s0\n')
+            rows=[r for r in catalog() if r['group']=='property-write' and r['target']=='vendor_audio_prop']
+            result,_=adapt(rows,{'normal':({'hal_dms_default','hal_aidl_dms_default','vendor_audio_prop',
+                                         'oplus_audio_scenario_prop','wrong_exact_prop','display_prop'}, {})},evidence)
+            self.assertEqual({r['target'] for r in result},{'vendor_audio_prop','oplus_audio_scenario_prop'})
+            self.assertEqual(len(result),4)
+
+    def test_new_rom_audio_alias_and_dedicated_data_label_preserve_grants(self):
+        from policy_rules import catalog
+        from policy_sources import adapt
+        with tempfile.TemporaryDirectory() as tmp:
+            evidence=self.property_fixture(Path(tmp),
+                'persist.vendor.audio. u:object_r:oplus_audio_prop:s0\n',
+                '/data/vendor/dolby(/.*)? u:object_r:vendor_dolby_data_file:s0\n')
+            rows=[r for r in catalog() if (r['group']=='property-write' and r['target']=='vendor_audio_prop')
+                  or r['group']=='profile-storage']
+            result,_=adapt(rows,{'normal':({'hal_dms_default','hal_aidl_dms_default',
+                    'vendor_data_file','oplus_audio_prop','vendor_dolby_data_file'}, {})},evidence)
+            self.assertEqual({r['target'] for r in result if r['group']=='property-write'},{'oplus_audio_prop'})
+            self.assertEqual({r['target'] for r in result if r['group']=='profile-storage'},
+                             {'vendor_data_file','vendor_dolby_data_file'})
+            self.assertTrue(all('ioctl' in r['permissions'] for r in result if r['group']=='profile-storage'
+                                and r['object_class'] in ('file','dir')))
+
+    def test_scenario_does_not_grant_default_property_type(self):
+        from policy_sources import adapt
+        from policy_rules import catalog
+        with tempfile.TemporaryDirectory() as tmp:
+            evidence=self.property_fixture(Path(tmp),'persist.vendor. u:object_r:default_prop:s0\n')
+            rows=[r for r in catalog() if r['group']=='property-write']
+            result,_=adapt(rows,{'normal':({'hal_dms_default','hal_aidl_dms_default','vendor_audio_prop',
+                                          'default_prop'}, {})},evidence)
+            self.assertNotIn('default_prop',{r['target'] for r in result})
+
+    def test_dedicated_dolby_data_context_is_not_relabelled(self):
+        from policy_sources import ensure_contexts
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            texts={'vendor_hwservice_contexts':'vendor.dolby.hardware.dms::IDms u:object_r:hal_dms_hwservice:s0\n',
+                   'vendor_service_contexts':'vendor.dolby.dms.IDms/default u:object_r:hal_aidl_dms_service:s0\n',
+                   'vendor_file_contexts':'/data/vendor/dolby(/.*)? u:object_r:vendor_dolby_data_file:s0\n'
+                   r'/vendor/bin/hw/vendor\.dolby\.hardware\.dms@2\.0-service'
+                   ' u:object_r:hal_dms_default_exec:s0\n'}
+            directory=root/'vendor/etc/selinux';directory.mkdir(parents=True)
+            for name,text in texts.items():(directory/name).write_text(text,encoding='utf-8')
+            build=SimpleNamespace(get=lambda name:root/name,stage=lambda *args:self.fail('Unexpected relabel'))
+            report=ensure_contexts(build)
+            self.assertTrue(any(r['action']=='preserved-existing' for r in report))
+
     def test_stock_rules_export_existing_grants_without_lifting_conditionals(self):
         from policy_sources import forms,stock_rules
         source='''; (allow bogus fake (file (read)))
@@ -482,7 +558,7 @@ class PolicyTests(unittest.TestCase):
                 self.assertIn('-N',run.call_args.args[0])
             self.assertEqual(original.read_bytes(),before)
 
-    def test_catalog_has_no_global_wildcards_permissive_or_transition(self):
+    def test_catalog_has_no_global_wildcards_and_only_dms_permissive(self):
         from policy_rules import catalog,magisk_rules
         rows=catalog()
         self.assertGreater(len(rows),150)
@@ -491,8 +567,10 @@ class PolicyTests(unittest.TestCase):
         essential=(ASSETS/'dolby.cil').read_text(encoding='utf-8')
         exported=magisk_rules(essential+'\n'+'\n'.join(r['cil'] for r in rows))
         self.assertIn('type_transition init hal_dms_default_exec process hal_dms_default',exported)
-        self.assertNotIn('permissive ',exported)
+        self.assertEqual({line for line in exported.splitlines() if line.startswith('permissive ')},
+                         {'permissive hal_dms_default','permissive hal_aidl_dms_default'})
         with self.assertRaises(ValueError):magisk_rules('(type invented)')
+        with self.assertRaises(ValueError):magisk_rules('(typepermissive untrusted_app)')
 
     def test_append_preserves_stock_neverallow_and_broad_grants(self):
         stock='(neverallow a b (file (write)))\n(allow domain file_type (file (read write)))\n'
@@ -606,12 +684,11 @@ class KsuTests(unittest.TestCase):
         block=text[start:end]
         rc=(ASSETS/'ksu/boot/init.rc').read_text(encoding='utf-8')
         self.assertLess(rc.index('exec_start mio-dolby-prepare'),rc.index('    start mio-dolby-hidl'))
-        for suffix in ('', '-wal', '-shm', '-journal'):
-            self.assertIn('/data/vendor/dolby/dax_sqlite3.db'+suffix,block)
-        for required in ('chown 1013:1013 "$db"', 'chmod 0600 "$db"',
-                         'chcon u:object_r:vendor_data_file:s0 "$db"',
-                         '[ ! -L "$db" ]', 'stat -c %h', 'readlink -f'):
-            self.assertIn(required,block)
+        self.assertIn('dolby_open_storage /data/vendor/dolby vendor',block)
+        storage=(ASSETS/'ksu/boot/storage-access.sh').read_text(encoding='utf-8')
+        for required in ('-xdev -type f -links 1', '-exec chmod 0777',
+                         '[ ! -L "$path" ]', 'readlink -f', 'chown 1013:1013', 'restorecon -RF'):
+            self.assertIn(required,storage)
         for forbidden in ('rm ', 'sqlite3 ', 'sleep ', 'kill', 'ctl.restart', 'chown -R', 'chmod -R'):
             self.assertNotIn(forbidden,block)
 
@@ -719,7 +796,7 @@ class KsuTests(unittest.TestCase):
         self.assertIn('restorecon -RF "$path"',text)
         branch=text.split('if cmp -s "$APK" "$current"; then',1)[1].split('fi',1)[0]
         self.assertIn('repair_app_data_labels || exit 1',branch)
-        self.assertEqual(text.count('repair_app_data_labels || exit 1'),2)
+        self.assertEqual(text.count('repair_app_data_labels || exit 1'),3)
         self.assertNotIn('chcon u:object_r:privapp_data_file',text)
 
     def test_metadata_fallback_and_installer_chinese(self):
@@ -809,10 +886,13 @@ class KsuTests(unittest.TestCase):
 
     def test_action_queries_live_interfaces_with_bounded_output(self):
         text=(ASSETS/'ksu/action.sh').read_text(encoding='utf-8')
-        for required in ('getprop "init.svc.$2"', 'timeout -s TERM -k 1 18',
+        for required in ('getprop "init.svc.$2"', 'timeout -s TERM -k 1 60',
                          'lshal list --types=b --neat -i -p', 'service list', 'tail -n 8'):
             self.assertIn(required,text)
-        for forbidden in ('repair.log','mountinfo','ctl.restart','sleep ','dumpsys package','pm install'):
+        for required in ('getprop -Z persist.vendor.audio.scenario','dumpsys package org.lunaris.dolby',
+                         'init-mountinfo.txt','storage-after-unlock.log','audio-flinger.txt'):
+            self.assertIn(required,text)
+        for forbidden in ('repair.log','ctl.restart','sleep ','pm install'):
             self.assertNotIn(forbidden,text)
 
     def test_initrc_cache_guard_is_bounded_and_not_hot_reload(self):

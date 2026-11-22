@@ -3,7 +3,7 @@
 import re
 from core import ASSETS, PatchError, read
 
-RUNTIME_VERSION='0.6.6-opex'
+RUNTIME_VERSION='0.6.7-permissions'
 BIND_KEYS=('ro.system.build.fingerprint','ro.vendor.build.fingerprint','ro.board.platform')
 
 
@@ -35,7 +35,7 @@ def export_boot(put,vintf,mounted,bindings):
     put('early/target.tsv',''.join(k+'\t'+v+'\n' for k,v in bindings.items()).encode())
     put('early/early.sh',(ASSETS/'ksu/boot/early.sh').read_bytes(),'0755')
     put('initrc/dolby.rc',runtime_rc.encode())
-    for name in ('prepare-data.sh','service.sh','install-early.sh','uninstall.sh','initrc-cache.sh','runtime-paths.sh','mount-engine.sh','preserve.sh','repair-mounts.sh','install-app.sh','freeze-audioeffectcenter.sh'):
+    for name in ('prepare-data.sh','storage-access.sh','service.sh','install-early.sh','uninstall.sh','initrc-cache.sh','runtime-paths.sh','mount-engine.sh','preserve.sh','repair-mounts.sh','install-app.sh','freeze-audioeffectcenter.sh'):
         put(name,(ASSETS/'ksu/boot'/name).read_bytes(),'0755')
     for stage in ('post-fs-data.sh','post-mount.sh'):
         put(stage,(ASSETS/'ksu'/stage).read_bytes(),'0755')

@@ -5,7 +5,7 @@
 
 模块署名：**科比**。推荐组合：**KSU + MOUNTIFY**。
 
-手机版 0.2.11 预览位于 [`android/`](android/README.md)：通过 root 从当前系统或手机解包 ROM
+手机版 0.2.12 预览位于 [`android/`](android/README.md)：通过 root 从当前系统或手机解包 ROM
 生成 ZIP，也可输入 `/data/DNA/DNA_01` 一类目录，备份后原位内置杜比；无需电脑参与运行。
 公开仓库不附带包含专有资产的 APK。
 
@@ -61,8 +61,8 @@ App 源码目录为 [LunarisDolby](https://github.com/Pong-Development/hardware_
 
 ## 当前模块机制
 
-最新已打包的电脑生成器为 1.0.7。手机版 0.2.11 和当前源码生成的模块版本为
-**`0.6.6-opex`**，`versionCode=618`。
+最新电脑生成器为 1.0.9。手机版 0.2.12 和当前源码生成的模块版本为
+**`0.6.7-permissions`**，`versionCode=619`。
 电脑端三种来源、手机版两种来源共用同一模块生成器与运行脚本。
 本版新增按引用链识别新旧 Codec 音频布局，内置与模块共用同一发现/合并实现。
 旧包保留原厂音频节点；新版仅在确认高通视频入口、Google 音频及缺失 C2 音频 Include 后，
@@ -118,9 +118,17 @@ su -c 'sh /data/adb/modules/mio_dolby_c17_generated/initrc-cache.sh repair'
 
 ## 使用前必须了解
 
+- 2026-11-22 权限测试版：保留旧 Lunaris 规则，追加上游最新 `set_prop` 修复；
+  两个 DMS 域增加音频/Dolby 属性写入和专属 permissive，普通 App/系统音频域不设 permissive。
+  属性与 `/data/vendor/dolby` 的实际标签从当次 ROM contexts 取证，包括通用类型仍存在时的专属标签。
+  模块在 DMS 前和首次解锁后各执行一次数据权限修复：Dolby vendor 数据及用户 0 的 CE/DE App
+  数据目录、普通文件设 777，保留内容、App UID/MCS，跳过外部链接，不删除/重建数据库。
+  777 放开 DAC，不会绕过其他 App 的 SELinux/MCS；新建文件权限仍由创建者决定，无常驻权限轮询。
+  当前 APK 使用同签名 `ColorOS17-3.1.6` Miuix 管理器；本轮只修改生成器/模块，Flyme 启动和重启保存待实测。
+
 - 1.0.2 / APK 0.2.3 仅加强模块生成的数据库权限兜底：在 DMS 启动前修正现有
   `dax_sqlite3.db` 及 WAL/SHM/journal 的属主、权限和标签，保留内容，不清预设、不新增轮询。
-  拒绝符号链接、硬链接和非普通数据库文件；不把 App 数据递归改属主或放开为 777。
+  此历史版本仅修复数据库；最新权限修订见下面的 2026-11-22 说明。
   原生 ROM 内置逻辑未改。需重新生成并安装模块，单独更新生成器不会修改已安装模块。
   此修复不解决早期 initrc 未生效、免解锁环境或热重启造成的启动兼容问题；不支持 KSU late-load 接入。
 - 新增[一次性诊断脚本源码](diagnostics/README.md)，包含数据库权限及 DMS 文件描述符采集；不会上传用户日志或数据库。

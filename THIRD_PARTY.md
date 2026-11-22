@@ -5,6 +5,8 @@
 - 来源仓库：[Pong-Development/hardware_dolby](https://github.com/Pong-Development/hardware_dolby)。
 - App 目录：[LunarisDolby](https://github.com/Pong-Development/hardware_dolby/tree/16/LunarisDolby)。
 - 本工具采用的 SELinux 规则固定提交：`6300a4e30757d5810d62b2df0cff973ec438a70f`。
+- 2026-11-22 增量读取 `b2963f7c2c7835389e7c16bdb0946ff9311d20e2`，原始规则位于
+  `assets/upstream-lunaris/latest/`；保留旧有效授权，追加最新场景属性写入修复与目标标签适配。
 - `assets/upstream-lunaris/` 保留原始 TE、contexts、属性、来源信息和本项目宏展开结果；来源详见该目录 `SOURCE.md`。
 - 本项目是集成与适配工具，不声称原创 LunarisDolby App 或 Dolby 音效/解码算法。
 - 私有开发期间使用过 AlphaDroid/Lunaris 移植材料；这不表示已获得所有二进制的公开分发许可。

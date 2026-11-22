@@ -167,7 +167,7 @@ def compile_all(build):
     mandatory_lines=set(essential.splitlines())
     candidates=[r for r in candidates if r['cil'] not in mandatory_lines]
     audit=dict(baseline='compiled',essential='compiled',neverallow_assertions=False,
-               stock_rules_removed=0,permissive_added=False,scope='Dolby compatibility grants, not AVC-proven minimum',
+               stock_rules_removed=0,permissive_added=['hal_dms_default','hal_aidl_dms_default'],scope='Dolby compatibility grants, not AVC-proven minimum',
                note='编译筛选只证明新增规则可编译，不保证开机或杜比功能；缺类型不自动猜别名。',
                upstream=UPSTREAM,context_remapped=remapped,
                stock_grants={f'{"debug" if k[0] else "normal"}-{k[1]}':len(v) for k,v in stock_by_key.items()},

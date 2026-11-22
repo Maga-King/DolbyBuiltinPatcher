@@ -168,7 +168,7 @@ collect_database() {
         done
     done
     capture database/recent-dms.txt 8 logcat -b all -d -v threadtime -s 'DatabaseHelper:V' 'DsContextManager:V' 'DlbDatabaseProvider:V' 'DolbyManagerService:V' 'DolbyManagerSvc:V' 'DMSService:V' 'DsManager:V' 'TuningFileParser:V' 'AHAL_DolbyDapEffect:V' 'DlbDapEffectContext:V' 'DlbEffectContext:V' 'libc:F' '*:S'
-    for f in prepare-data.sh gate.sh service.sh post-fs-data.sh sepolicy.rule module.prop; do
+    for f in prepare-data.sh storage-access.sh install-app.sh action.sh gate.sh service.sh post-fs-data.sh sepolicy.rule module.prop; do
         copy_file "$M/$f" "module/$f"
     done
     return 0
@@ -183,8 +183,16 @@ printf 'Read-only current ROM view, not a clean OTA baseline. Existing module ov
     done
     getprop | grep -Ei 'init.svc.*(dolby|dms|audio|hwservicemanager)|audio.*(offload|effect)|ro.gsid.image_running'
     df -k /data /sdcard
+    echo "persist.vendor.audio.scenario=$(getprop persist.vendor.audio.scenario)"
+    getprop -Z persist.vendor.audio.scenario
+    getprop -T persist.vendor.audio.scenario
     echo "self=$(readlink /proc/self/ns/mnt) init=$(readlink /proc/1/ns/mnt)"
 } > "$R/environment.txt" 2>&1
+capture app-storage-permissions.txt 5 sh -c '
+    for p in /data/vendor/dolby /data/user/0/org.lunaris.dolby /data/user_de/0/org.lunaris.dolby; do
+        ls -ldZ "$p" "$p/shared_prefs" "$p/databases" 2>&1
+        find "$p" -xdev -maxdepth 3 -type f -exec ls -lZ "{}" \; 2>&1 | head -n 80
+    done'
 if [ "$DB_ONLY" = 1 ]; then
     collect_database
     capture services.txt 5 service list

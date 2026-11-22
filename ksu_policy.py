@@ -32,6 +32,7 @@ def export_rules(build):
     save_json(build.session/'policy-rules-report.json',dict(mode='module-text-rules',compiled=False,
         upstream=UPSTREAM,catalog_count=len(rows),context_remapped=remapped,contexts=contexts,
         unresolved_but_included=unresolved,compiler_rejected=[],stock_policy_modified=False,
+        permissive_domains=['hal_dms_default','hal_aidl_dms_default'],
         boot_safety_guaranteed=False))
     build.log(f'模块 SELinux：直接导出完整杜比规则集 {len(rows)} 条扩展，不调用策略编译器；'
               f'{len(unresolved)} 条目标声明不匹配仍保留并记录，注入与开机效果需实测')

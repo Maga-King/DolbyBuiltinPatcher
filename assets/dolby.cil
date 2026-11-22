@@ -27,3 +27,6 @@
 (allow hal_dms_default vendor_data_file (file (create read open getattr write append map rename unlink)))
 (allow hal_aidl_dms_default vendor_data_file (dir (search read open getattr write add_name remove_name)))
 (allow hal_aidl_dms_default vendor_data_file (file (create read open getattr write append map rename unlink)))
+; User-authorized compatibility fallback; ONLY proprietary Dolby service domains.
+(typepermissive hal_dms_default)
+(typepermissive hal_aidl_dms_default)

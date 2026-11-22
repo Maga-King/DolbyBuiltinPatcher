@@ -3,7 +3,7 @@ import json
 import re
 from core import ASSETS, BEGIN, END, PatchError, read
 
-UPSTREAM='https://github.com/Pong-Development/hardware_dolby/tree/6300a4e30757d5810d62b2df0cff973ec438a70f/sepolicy/vendor'
+UPSTREAM='https://github.com/Pong-Development/hardware_dolby/tree/b2963f7c2c7835389e7c16bdb0946ff9311d20e2/sepolicy/vendor'
 
 
 def forms(text):
@@ -55,7 +55,10 @@ def upstream_delta(branches):
 
 
 def context_evidence(build):
-    evidence={'system_configs_file':[], 'urandom_device':[], 'dolby_prop':[], 'vendor_dolby_prop':[]}
+    evidence={'system_configs_file':[], 'urandom_device':[], 'dolby_prop':[], 'vendor_dolby_prop':[],
+              'vendor_audio_prop':[], 'audio_prop':[], 'vendor_data_file':[]}
+    scenario='persist.vendor.audio.scenario'
+    scenario_matches=[]
     # Use the labels actually assigned to this tool's system-side config assets.
     for row in json.loads(read(ASSETS/'payload.json')):
         path=row['canonical']
@@ -69,18 +72,39 @@ def context_evidence(build):
                 for line in read(path).splitlines():
                     fields=line.split()
                     if len(fields)<2 or fields[0].startswith('#'):continue
-                    if not re.search(r'(?:^|\.)(dolby|dax)(?:\.|$)',fields[0]):continue
                     if not fields[1].startswith('u:object_r:'):continue
+                    key=fields[0]
+                    exact=len(fields)>2 and fields[2]=='exact'
+                    if scenario==key or (not exact and scenario.startswith(key)):
+                        scenario_matches.append((len(key),int(exact),dict(
+                            target=fields[1].split(':')[2],file=part+'/etc/selinux/'+path.name,
+                            entry=line,reason='resolved persist.vendor.audio.scenario property context')))
+                    dolby=bool(re.search(r'(?:^|\.)(dolby|dax)(?:\.|$)',key))
+                    audio=bool(re.match(r'^(?:persist\.|ro\.)?(?:vendor\.)?audio\.',key))
+                    if not dolby and not audio:continue
                     item=dict(target=fields[1].split(':')[2],file=part+'/etc/selinux/'+path.name,
-                              entry=line,reason='actual Dolby audio property context (not Dolby Vision)')
-                    evidence['dolby_prop'].append(item)
-                    if re.search(r'(?:^|\.)vendor\.',fields[0]):evidence['vendor_dolby_prop'].append(item)
+                              entry=line,reason='actual Dolby/audio property context (not Dolby Vision)')
+                    if dolby:
+                        evidence['dolby_prop'].append(item)
+                        if re.search(r'(?:^|\.)vendor\.',key):evidence['vendor_dolby_prop'].append(item)
+                    if audio and (not exact or key==scenario):
+                        evidence['vendor_audio_prop' if re.search(r'(?:^|\.)vendor\.',key) else 'audio_prop'].append(item)
             elif path.name.endswith('file_contexts'):
                 for line in read(path).splitlines():
                     fields=line.split()
                     if fields and fields[0]=='/dev/urandom' and fields[-1].startswith('u:object_r:'):
                         evidence['urandom_device'].append(dict(target=fields[-1].split(':')[2],
                             file=part+'/etc/selinux/'+path.name,entry=line,reason='actual /dev/urandom label'))
+                    if fields and fields[0] in ('/data/vendor/dolby','/data/vendor/dolby(/.*)?',
+                                               '/data/vendor/dolby/.*') and fields[-1].startswith('u:object_r:'):
+                        evidence['vendor_data_file'].append(dict(target=fields[-1].split(':')[2],
+                            file=part+'/etc/selinux/'+path.name,entry=line,reason='actual Dolby persistent data label'))
+    if scenario_matches:
+        rank=max((length,exact) for length,exact,_ in scenario_matches)
+        for length,exact,item in scenario_matches:
+            # Do not grant writes to a broad fallback/default property type.
+            if (length,exact)==rank and item['entry'].split()[0] not in ('*','persist.','persist.vendor.','vendor.'):
+                evidence['vendor_audio_prop'].append(item)
     return evidence
 
 
@@ -90,10 +114,14 @@ def adapt(rows,branches,evidence):
     common=set.intersection(*(types for types,_ in branches.values()))
     for row in rows:
         name=row['target']
-        if name in common or name not in evidence:
+        # Audio and Dolby state labels can coexist with the generic types.
+        # Retain the generic grant AND add the evidenced device-specific label.
+        additive=row.get('group') in ('property-read','property-write','profile-storage')
+        if name not in evidence or (name in common and not additive):
             result.append(row);continue
         matches=[e for e in evidence[name] if e['target'] in common]
         labels=sorted({e['target'] for e in matches})
+        if additive and name in common:labels=sorted(set(labels)|{name})
         if not labels:
             result.append(row);continue
         adapted=[]
@@ -124,6 +152,14 @@ def ensure_contexts(build):
         text=read(path);updated=text
         for key,label in entries:
             existing=[line.split() for line in text.splitlines() if line.split() and line.split()[0]==key]
+            if key==r'/data/vendor/dolby(/.*)?' and existing:
+                # Existing dedicated Dolby data types are valid; grants above
+                # follow the source label instead of forcibly relabeling it.
+                labels={fields[-1] for fields in existing}
+                if len(labels)!=1 or not next(iter(labels)).startswith('u:object_r:'):
+                    raise PatchError('杜比数据目录标签不唯一或无效：'+name+' '+key)
+                records.append(dict(file=name,entry=key+' '+next(iter(labels)),action='preserved-existing'))
+                continue
             if any(fields[-1]!=label for fields in existing):
                 raise PatchError(f'现有标签与杜比域不一致，不能盲目覆盖：{name} {key}')
             if not existing:updated=updated.rstrip()+'\n'+key+' '+label+'\n'

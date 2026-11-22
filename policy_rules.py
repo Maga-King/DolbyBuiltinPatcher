@@ -71,13 +71,20 @@ def catalog():
         allow('init-transition', 'init', domain, 'process', 'siginh rlimitinh')
 
     for domain in dms:
+        # DMS changes persist.vendor.audio.scenario when selecting a profile.
+        # Expand set_prop completely for BOTH bridges, not only get_prop.
+        allow('property-write', domain, 'property_socket', 'sock_file', 'write')
+        allow('property-write', domain, 'init', 'unix_stream_socket', 'connectto')
+        for label in ('audio_prop', 'vendor_audio_prop', 'vendor_dolby_prop', 'dolby_prop'):
+            allow('property-write', domain, label, 'property_service', 'set')
+            allow('property-read', domain, label, 'file', files)
         for client in clients:
             binder('dms-audio-clients', client, domain)
         # Existing payload stores profiles in /data/vendor, not arbitrary app data.
         allow('profile-storage', domain, 'vendor_data_file', 'dir',
-              'create search read open getattr setattr write add_name remove_name rmdir')
+              'create search read open getattr setattr write add_name remove_name rmdir rename reparent ioctl lock watch watch_reads')
         allow('profile-storage', domain, 'vendor_data_file', 'file',
-              'create read open getattr setattr write append map lock rename unlink')
+              'create read open getattr setattr write append map lock rename unlink ioctl watch watch_reads')
         allow('profile-storage', domain, 'vendor_data_file', 'lnk_file', 'read getattr')
     binder('hidl-aidl-bridge', dms[0], dms[1])
     for client in (*clients, *dms):
@@ -156,6 +163,7 @@ def magisk_rules(delta):
         transition = re.fullmatch(r'\(typetransition (\S+) (\S+) (\S+) (\S+)\)', line)
         attribute = re.fullmatch(r'\(typeattribute (\S+)\)',line)
         membership = re.fullmatch(r'\(typeattributeset (\S+) \(([^()]+)\)\)',line)
+        permissive = re.fullmatch(r'\(typepermissive (hal_(?:aidl_)?dms_default)\)',line)
         if allow:
             action, src, dst, cls, perms = allow.groups()
             out.append(f'{action} {src} {dst} {cls} {{ {perms.strip()} }}')
@@ -166,6 +174,8 @@ def magisk_rules(delta):
         elif membership:
             attr,members=membership.groups()
             out.extend(f'typeattribute {member} {attr}' for member in members.split())
+        elif permissive:
+            out.append('permissive '+permissive.group(1))
         else:
             raise ValueError('Unsupported generated Dolby CIL: ' + line)
     return '\n'.join(out) + '\n'
